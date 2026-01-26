@@ -4,7 +4,7 @@ import json
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Tuple
 
 # ========= CONFIG =========
 
@@ -15,8 +15,76 @@ HADES_SAVE_DIR = Path(
 BACKUP_SAVE_ROOT = Path.home() / ".local/share/hades_backups"
 TAGS_DIR = BACKUP_SAVE_ROOT / "tags"
 CONFIG_FILE = BACKUP_SAVE_ROOT / "config.json"
+LOG_FILE = BACKUP_SAVE_ROOT / "hades.log"
 
 # ==========================
+
+
+# ---------- logging ----------
+
+
+class Logger:
+    """Simple logging system for Hades backup operations"""
+    
+    def __init__(self):
+        self.logs: List[Tuple[datetime, str, str]] = []  # (timestamp, level, message)
+        self.max_logs = 50  # Keep last 50 log entries
+    
+    def log(self, level: str, message: str) -> None:
+        """Add a log entry"""
+        timestamp = datetime.now()
+        entry = (timestamp, level, message)
+        self.logs.append(entry)
+        
+        # Keep only the last max_logs entries
+        if len(self.logs) > self.max_logs:
+            self.logs = self.logs[-self.max_logs:]
+        
+        # Also write to file
+        self._write_to_file(timestamp, level, message)
+    
+    def info(self, message: str) -> None:
+        """Log an info message"""
+        self.log("INFO", message)
+    
+    def error(self, message: str) -> None:
+        """Log an error message"""
+        self.log("ERROR", message)
+    
+    def success(self, message: str) -> None:
+        """Log a success message"""
+        self.log("SUCCESS", message)
+    
+    def warning(self, message: str) -> None:
+        """Log a warning message"""
+        self.log("WARNING", message)
+    
+    def get_recent_logs(self, count: int = 10) -> List[str]:
+        """Get recent log entries as formatted strings"""
+        recent = self.logs[-count:] if self.logs else []
+        return [
+            f"[{ts.strftime('%H:%M:%S')}] {level}: {msg}"
+            for ts, level, msg in recent
+        ]
+    
+    def clear(self) -> None:
+        """Clear all logs"""
+        self.logs.clear()
+    
+    def _write_to_file(self, timestamp: datetime, level: str, message: str) -> None:
+        """Write log entry to file"""
+        try:
+            BACKUP_SAVE_ROOT.mkdir(parents=True, exist_ok=True)
+            log_line = f"{timestamp.isoformat()} {level}: {message}\n"
+            with LOG_FILE.open("a", encoding="utf-8") as f:
+                f.write(log_line)
+        except Exception:
+            # Don't let logging errors break the application
+            pass
+
+
+# Global logger instance
+logger = Logger()
 
 
 def now_ts() -> str:
@@ -113,102 +181,143 @@ def set_last_tag(tag: str) -> None:
 # ---------- tag management ----------
 
 
-def rename_tag(old_tag: str, new_tag: str) -> None:
-    """Rename a tag"""
+def rename_tag(old_tag: str, new_tag: str) -> Tuple[bool, str]:
+    """Rename a tag. Returns (success, message)"""
     if old_tag == new_tag:
-        return
+        return False, "New tag name is the same as old name"
 
     old_file = TAGS_DIR / f"{old_tag}.json"
     new_file = TAGS_DIR / f"{new_tag}.json"
 
     if not old_file.exists():
-        raise ValueError(f"Tag '{old_tag}' does not exist")
+        error_msg = f"Tag '{old_tag}' does not exist"
+        logger.error(error_msg)
+        return False, error_msg
 
     if new_file.exists():
-        raise ValueError(f"Tag '{new_tag}' already exists")
+        error_msg = f"Tag '{new_tag}' already exists"
+        logger.error(error_msg)
+        return False, error_msg
 
-    TAGS_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        TAGS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Update tag file
-    snapshots = snapshots_for_tag(old_tag)
-    new_file.write_text(json.dumps(snapshots, indent=2))
-    old_file.unlink()
+        # Update tag file
+        snapshots = snapshots_for_tag(old_tag)
+        new_file.write_text(json.dumps(snapshots, indent=2))
+        old_file.unlink()
 
-    # Update metadata in all snapshots
-    for snapshot_name in snapshots:
-        snapshot_path = BACKUP_SAVE_ROOT / snapshot_name
-        if snapshot_path.exists():
-            meta = read_meta(snapshot_path)
-            tags = meta.get("tags", [])
-            if old_tag in tags:
-                tags.remove(old_tag)
-                tags.append(new_tag)
-                meta["tags"] = sorted(set(tags))
-                write_meta(snapshot_path, meta["tags"], meta.get("note"))
+        # Update metadata in all snapshots
+        updated_count = 0
+        for snapshot_name in snapshots:
+            snapshot_path = BACKUP_SAVE_ROOT / snapshot_name
+            if snapshot_path.exists():
+                meta = read_meta(snapshot_path)
+                tags = meta.get("tags", [])
+                if old_tag in tags:
+                    tags.remove(old_tag)
+                    tags.append(new_tag)
+                    meta["tags"] = sorted(set(tags))
+                    write_meta(snapshot_path, meta["tags"], meta.get("note"))
+                    updated_count += 1
+
+        success_msg = f"Renamed tag '{old_tag}' to '{new_tag}' (updated {updated_count} snapshots)"
+        logger.success(success_msg)
+        return True, success_msg
+    except Exception as e:
+        error_msg = f"Failed to rename tag: {str(e)}"
+        logger.error(error_msg)
+        return False, error_msg
 
 
-def delete_tag(tag: str) -> None:
-    """Delete a tag completely"""
+def delete_tag(tag: str) -> Tuple[bool, str]:
+    """Delete a tag completely. Returns (success, message)"""
     tag_file = TAGS_DIR / f"{tag}.json"
 
     if not tag_file.exists():
-        raise ValueError(f"Tag '{tag}' does not exist")
+        error_msg = f"Tag '{tag}' does not exist"
+        logger.error(error_msg)
+        return False, error_msg
 
-    # Remove tag from metadata in all snapshots
-    snapshots = snapshots_for_tag(tag)
-    for snapshot_name in snapshots:
-        snapshot_path = BACKUP_SAVE_ROOT / snapshot_name
-        if snapshot_path.exists():
-            meta = read_meta(snapshot_path)
-            tags = meta.get("tags", [])
-            if tag in tags:
-                tags.remove(tag)
-                meta["tags"] = sorted(set(tags))
-                write_meta(snapshot_path, meta["tags"], meta.get("note"))
+    try:
+        # Remove tag from metadata in all snapshots
+        snapshots = snapshots_for_tag(tag)
+        updated_count = 0
+        for snapshot_name in snapshots:
+            snapshot_path = BACKUP_SAVE_ROOT / snapshot_name
+            if snapshot_path.exists():
+                meta = read_meta(snapshot_path)
+                tags = meta.get("tags", [])
+                if tag in tags:
+                    tags.remove(tag)
+                    meta["tags"] = sorted(set(tags))
+                    write_meta(snapshot_path, meta["tags"], meta.get("note"))
+                    updated_count += 1
 
-    # Delete tag file
-    tag_file.unlink()
+        # Delete tag file
+        tag_file.unlink()
+
+        success_msg = f"Deleted tag '{tag}' (removed from {updated_count} snapshots)"
+        logger.success(success_msg)
+        return True, success_msg
+    except Exception as e:
+        error_msg = f"Failed to delete tag: {str(e)}"
+        logger.error(error_msg)
+        return False, error_msg
 
 
-def merge_tags(source_tag: str, target_tag: str) -> None:
-    """Merge source_tag into target_tag"""
+def merge_tags(source_tag: str, target_tag: str) -> Tuple[bool, str]:
+    """Merge source_tag into target_tag. Returns (success, message)"""
     if source_tag == target_tag:
-        return
+        return False, "Cannot merge tag into itself"
 
     source_file = TAGS_DIR / f"{source_tag}.json"
     target_file = TAGS_DIR / f"{target_tag}.json"
 
     if not source_file.exists():
-        raise ValueError(f"Source tag '{source_tag}' does not exist")
+        error_msg = f"Source tag '{source_tag}' does not exist"
+        logger.error(error_msg)
+        return False, error_msg
 
-    TAGS_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        TAGS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Get all snapshots from both tags
-    source_snapshots = set(snapshots_for_tag(source_tag))
-    target_snapshots = set(snapshots_for_tag(target_tag))
+        # Get all snapshots from both tags
+        source_snapshots = set(snapshots_for_tag(source_tag))
+        target_snapshots = set(snapshots_for_tag(target_tag))
 
-    # Merge snapshots
-    all_snapshots = source_snapshots.union(target_snapshots)
+        # Merge snapshots
+        all_snapshots = source_snapshots.union(target_snapshots)
 
-    # Update target tag file
-    target_file.write_text(json.dumps(sorted(all_snapshots), indent=2))
+        # Update target tag file
+        target_file.write_text(json.dumps(sorted(all_snapshots), indent=2))
 
-    # Update metadata for all affected snapshots
-    for snapshot_name in all_snapshots:
-        snapshot_path = BACKUP_SAVE_ROOT / snapshot_name
-        if snapshot_path.exists():
-            meta = read_meta(snapshot_path)
-            tags = set(meta.get("tags", []))
+        # Update metadata for all affected snapshots
+        updated_count = 0
+        for snapshot_name in all_snapshots:
+            snapshot_path = BACKUP_SAVE_ROOT / snapshot_name
+            if snapshot_path.exists():
+                meta = read_meta(snapshot_path)
+                tags = set(meta.get("tags", []))
 
-            # Remove source tag, add target tag
-            tags.discard(source_tag)
-            tags.add(target_tag)
+                # Remove source tag, add target tag
+                tags.discard(source_tag)
+                tags.add(target_tag)
 
-            meta["tags"] = sorted(tags)
-            write_meta(snapshot_path, meta["tags"], meta.get("note"))
+                meta["tags"] = sorted(tags)
+                write_meta(snapshot_path, meta["tags"], meta.get("note"))
+                updated_count += 1
 
-    # Delete source tag file
-    source_file.unlink()
+        # Delete source tag file
+        source_file.unlink()
+
+        success_msg = f"Merged tag '{source_tag}' into '{target_tag}' (updated {updated_count} snapshots)"
+        logger.success(success_msg)
+        return True, success_msg
+    except Exception as e:
+        error_msg = f"Failed to merge tags: {str(e)}"
+        logger.error(error_msg)
+        return False, error_msg
 
 
 # ---------- snapshots ----------
@@ -223,40 +332,78 @@ def list_snapshots() -> List[Path]:
     )
 
 
-def save(tags: List[str], note: Optional[str]) -> Path:
-    assert_game_closed()
+def save(tags: List[str], note: Optional[str]) -> Tuple[Optional[Path], str]:
+    """Create a new snapshot. Returns (path, message)"""
+    try:
+        assert_game_closed()
 
-    dest = BACKUP_SAVE_ROOT / now_ts()
-    BACKUP_SAVE_ROOT.mkdir(parents=True, exist_ok=True)
+        dest = BACKUP_SAVE_ROOT / now_ts()
+        BACKUP_SAVE_ROOT.mkdir(parents=True, exist_ok=True)
 
-    shutil.copytree(HADES_SAVE_DIR, dest)
-    write_meta(dest, tags, note)
+        shutil.copytree(HADES_SAVE_DIR, dest)
+        write_meta(dest, tags, note)
 
-    for tag in tags:
-        add_tag(tag, dest.name)
+        for tag in tags:
+            add_tag(tag, dest.name)
 
-    return dest
+        tag_str = f" with tags {tags}" if tags else ""
+        note_str = f" (note: {note})" if note else ""
+        success_msg = f"Created snapshot {dest.name}{tag_str}{note_str}"
+        logger.success(success_msg)
+        return dest, success_msg
+    except Exception as e:
+        error_msg = f"Failed to create snapshot: {str(e)}"
+        logger.error(error_msg)
+        return None, error_msg
 
 
-def restore(snapshot: Path) -> None:
-    assert_game_closed()
+def restore(snapshot: Path) -> Tuple[bool, str]:
+    """Restore a snapshot. Returns (success, message)"""
+    try:
+        assert_game_closed()
 
-    tmp = HADES_SAVE_DIR.with_suffix(".tmp")
-    if tmp.exists():
+        tmp = HADES_SAVE_DIR.with_suffix(".tmp")
+        if tmp.exists():
+            shutil.rmtree(tmp)
+
+        shutil.move(HADES_SAVE_DIR, tmp)
+        shutil.copytree(snapshot, HADES_SAVE_DIR)
         shutil.rmtree(tmp)
 
-    shutil.move(HADES_SAVE_DIR, tmp)
-    shutil.copytree(snapshot, HADES_SAVE_DIR)
-    shutil.rmtree(tmp)
+        success_msg = f"Restored snapshot {snapshot.name}"
+        logger.success(success_msg)
+        return True, success_msg
+    except Exception as e:
+        error_msg = f"Failed to restore snapshot: {str(e)}"
+        logger.error(error_msg)
+        return False, error_msg
 
 
-def restore_by_tag(tag: str) -> None:
-    matches = snapshots_for_tag(tag)
-    if not matches:
-        raise ValueError(f"No snapshots for tag '{tag}'")
+def restore_by_tag(tag: str) -> Tuple[bool, str]:
+    """Restore latest snapshot with given tag. Returns (success, message)"""
+    try:
+        matches = snapshots_for_tag(tag)
+        if not matches:
+            error_msg = f"No snapshots for tag '{tag}'"
+            logger.error(error_msg)
+            return False, error_msg
 
-    restore(BACKUP_SAVE_ROOT / sorted(matches)[-1])
+        latest_snapshot = BACKUP_SAVE_ROOT / sorted(matches)[-1]
+        return restore(latest_snapshot)
+    except Exception as e:
+        error_msg = f"Failed to restore by tag: {str(e)}"
+        logger.error(error_msg)
+        return False, error_msg
 
 
-def delete_snapshot(snapshot: Path) -> None:
-    shutil.rmtree(snapshot)
+def delete_snapshot(snapshot: Path) -> Tuple[bool, str]:
+    """Delete a snapshot. Returns (success, message)"""
+    try:
+        shutil.rmtree(snapshot)
+        success_msg = f"Deleted snapshot {snapshot.name}"
+        logger.success(success_msg)
+        return True, success_msg
+    except Exception as e:
+        error_msg = f"Failed to delete snapshot: {str(e)}"
+        logger.error(error_msg)
+        return False, error_msg

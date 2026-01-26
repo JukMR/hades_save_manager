@@ -20,6 +20,7 @@ def init_colors() -> None:
     curses.init_pair(6, curses.COLOR_BLACK, curses.COLOR_WHITE)  # active pane border
     curses.init_pair(7, curses.COLOR_MAGENTA, -1)  # tags
     curses.init_pair(8, curses.COLOR_WHITE, curses.COLOR_BLUE)  # active tag
+    curses.init_pair(9, curses.COLOR_CYAN, -1)  # log messages
 
 
 # ---------- UI helpers ----------
@@ -75,6 +76,7 @@ class UIState:
         self.tag_input = ""
         self.error_message = ""
         self.error_timer = 0
+        self.show_logs = False  # Toggle log visibility
 
     def get_filtered_snapshots(self, all_snapshots: List[core.Path]) -> List[core.Path]:
         """Get snapshots filtered by selected tag"""
@@ -263,36 +265,90 @@ def draw_tag_input(stdscr, state: UIState, offset_x: int, pane_w: int) -> None:
     stdscr.addstr(5, offset_x + 2, "[Enter] confirm  [Esc] cancel", curses.color_pair(5))
 
 
+def draw_logs(stdscr, state: UIState, offset_x: int, width: int, h: int) -> None:
+    """Draw recent logs in a small panel"""
+    if not state.show_logs:
+        return
+    
+    # Get recent logs
+    logs = core.logger.get_recent_logs(8)
+    
+    # Draw log border and header
+    log_h = min(len(logs) + 2, h - 4)
+    stdscr.addstr(h - log_h - 1, offset_x, "┌" + "─" * (width - 2) + "┐", curses.color_pair(1))
+    stdscr.addstr(h - log_h, offset_x, "│ Logs ", curses.color_pair(1) | curses.A_BOLD)
+    stdscr.addstr(h - log_h, offset_x + len("│ Logs "), " " * (width - len("│ Logs ") - 1) + "│", curses.color_pair(1))
+    
+    # Draw log entries
+    for i, log_line in enumerate(logs):
+        y = h - log_h + 1 + i
+        if y >= h - 1:
+            break
+        
+        # Truncate log line if too long
+        display_line = log_line[:width - 4]
+        
+        # Determine color based on log level
+        if "ERROR" in log_line:
+            color = curses.color_pair(4)
+        elif "SUCCESS" in log_line:
+            color = curses.color_pair(5)
+        elif "WARNING" in log_line:
+            color = curses.color_pair(3)
+        else:
+            color = curses.color_pair(9)
+        
+        stdscr.addstr(y, offset_x, f"│ {display_line.ljust(width - 4)} │", color)
+    
+    # Draw bottom border
+    stdscr.addstr(h - 1, offset_x, "└" + "─" * (width - 2) + "┘", curses.color_pair(1))
+
+
 def draw_help_bar(stdscr, h: int, w: int, state: UIState) -> None:
     """Draw the help/status bar"""
+    # Draw logs if enabled
+    if state.show_logs:
+        draw_logs(stdscr, state, 2, w, h)
+    
     # Draw error message if active
     if state.error_message and state.error_timer > 0:
-        error_y = h - 3
-        stdscr.addstr(error_y, 2, state.error_message[: w - 4], curses.color_pair(4))
+        error_y = h - 3 if not state.show_logs else h - 2
+        stdscr.addstr(error_y, 2, state.error_message[:w-4], curses.color_pair(4))
         state.error_timer -= 1
-        help_y = h - 2
+        help_y = h - 2 if not state.show_logs else h - 3
     else:
-        help_y = h - 2
-
+        help_y = h - 2 if not state.show_logs else h - 3
+    
     help_texts = {
-        0: "[↑↓] move  [Tab] switch pane  [Enter] select  [s] save  [r] restore  [d] delete  [q] quit",
-        1: "[Tab] switch pane  [q] quit",  # Metadata pane has fewer actions
-        2: "[↑↓] move  [Tab] switch pane  [Enter] filter  [n] new  [R] rename  [D] delete  [m] merge  [q] quit",
+        0: "[↑↓] move  [Tab] switch pane  [Enter] select  [s] save  [r] restore  [d] delete  [l] toggle logs  [q] quit",
+        1: "[Tab] switch pane  [l] toggle logs  [q] quit",  # Metadata pane has fewer actions
+        2: "[↑↓] move  [Tab] switch pane  [Enter] filter  [n] new  [R] rename  [D] delete  [m] merge  [l] toggle logs  [q] quit"
     }
-
+    
     help_text = help_texts.get(state.active_pane, help_texts[0])
-
+    
     # Add current filter info if any
     if state.selected_tag:
         filter_info = f" | Filter: {state.selected_tag}"
         if len(help_text) + len(filter_info) < w - 2:
             help_text += filter_info
-
-    stdscr.addstr(help_y, 2, help_text[: w - 4], curses.color_pair(5))
+    
+    # Add logs toggle status
+    logs_status = " | Logs: ON" if state.show_logs else ""
+    if logs_status:
+        help_text += logs_status
+    
+    stdscr.addstr(help_y, 2, help_text[:w-4], curses.color_pair(5))
 
 
 def set_error(state: UIState, message: str) -> None:
     """Set an error message to display"""
+    state.error_message = message
+    state.error_timer = 10  # Show for 10 frames
+
+
+def set_success(state: UIState, message: str) -> None:
+    """Set a success message to display"""
     state.error_message = message
     state.error_timer = 10  # Show for 10 frames
 
@@ -381,13 +437,17 @@ def main(stdscr) -> None:
                     "Create a new snapshot with these tags?",
                 ):
                     tag_list = [t.strip() for t in tags if t.strip()]
-                    core.save(tag_list, note)
-
-                    # Update last tag if tags were provided
-                    if tag_list:
-                        core.set_last_tag(tag_list[0])
-                        state.selected_tag = tag_list[0]
-                        state.snapshot_idx = 0
+                    result, message = core.save(tag_list, note)
+                    
+                    if result:
+                        # Update last tag if tags were provided
+                        if tag_list:
+                            core.set_last_tag(tag_list[0])
+                            state.selected_tag = tag_list[0]
+                            state.snapshot_idx = 0
+                        set_success(state, message)
+                    else:
+                        set_error(state, message)
 
             # ---------- RESTORE ----------
             elif key == ord("r") and filtered_snapshots:
@@ -397,7 +457,11 @@ def main(stdscr) -> None:
                     "Restore snapshot",
                     f"Restore {snap.name}? Current save will be replaced.",
                 ):
-                    core.restore(snap)
+                    result, message = core.restore(snap)
+                    if result:
+                        set_success(state, message)
+                    else:
+                        set_error(state, message)
 
             # ---------- DELETE ----------
             elif key == ord("d") and filtered_snapshots:
@@ -407,8 +471,12 @@ def main(stdscr) -> None:
                     "Delete snapshot",
                     f"Delete {snap.name}? This is permanent.",
                 ):
-                    core.delete_snapshot(snap)
-                    state.snapshot_idx = max(0, state.snapshot_idx - 1)
+                    result, message = core.delete_snapshot(snap)
+                    if result:
+                        state.snapshot_idx = max(0, state.snapshot_idx - 1)
+                        set_success(state, message)
+                    else:
+                        set_error(state, message)
 
         # ---------- TAGS PANE ACTIONS ----------
         elif state.active_pane == 2:
@@ -457,14 +525,15 @@ def main(stdscr) -> None:
                     "Delete tag",
                     f"Delete tag '{tag}'? This will remove it from all snapshots.",
                 ):
-                    try:
-                        core.delete_tag(tag)
+                    result, message = core.delete_tag(tag)
+                    if result:
                         if state.selected_tag == tag:
                             state.selected_tag = None
                             core.set_last_tag("")
                         state.tag_idx = max(0, state.tag_idx - 1)
-                    except ValueError as e:
-                        set_error(state, str(e))
+                        set_success(state, message)
+                    else:
+                        set_error(state, message)
 
             # ---------- MERGE TAG ----------
             elif key == ord("m") and tags:
@@ -480,14 +549,15 @@ def main(stdscr) -> None:
                         "Merge tags",
                         f"Merge '{source_tag}' into '{target_tag}'?",
                     ):
-                        try:
-                            core.merge_tags(source_tag, target_tag)
+                        result, message = core.merge_tags(source_tag, target_tag)
+                        if result:
                             if state.selected_tag == source_tag:
                                 state.selected_tag = target_tag
                                 core.set_last_tag(target_tag)
                             state.tag_idx = target_idx
-                        except ValueError as e:
-                            set_error(state, str(e))
+                            set_success(state, message)
+                        else:
+                            set_error(state, message)
 
         # ---------- TAG INPUT HANDLING ----------
         elif state.creating_tag or state.renaming_tag:
@@ -499,21 +569,25 @@ def main(stdscr) -> None:
 
             elif key == ord("\n"):  # Enter
                 if state.tag_input.strip():
-                    try:
-                        if state.creating_tag:
-                            # Just create the tag (it will be empty until used)
-                            core.TAGS_DIR.mkdir(parents=True, exist_ok=True)
-                            tag_file = core.TAGS_DIR / f"{state.tag_input.strip()}.json"
-                            if not tag_file.exists():
-                                tag_file.write_text("[]")
-                        elif state.renaming_tag and state.tag_idx < len(core.list_tags()):
-                            old_tag = core.list_tags()[state.tag_idx]
-                            core.rename_tag(old_tag, state.tag_input.strip())
+                    if state.creating_tag:
+                        # Just create the tag (it will be empty until used)
+                        core.TAGS_DIR.mkdir(parents=True, exist_ok=True)
+                        tag_file = core.TAGS_DIR / f"{state.tag_input.strip()}.json"
+                        if not tag_file.exists():
+                            tag_file.write_text("[]")
+                            set_success(state, f"Created tag '{state.tag_input.strip()}'")
+                        else:
+                            set_error(state, f"Tag '{state.tag_input.strip()}' already exists")
+                    elif state.renaming_tag and state.tag_idx < len(core.list_tags()):
+                        old_tag = core.list_tags()[state.tag_idx]
+                        result, message = core.rename_tag(old_tag, state.tag_input.strip())
+                        if result:
                             if state.selected_tag == old_tag:
                                 state.selected_tag = state.tag_input.strip()
                                 core.set_last_tag(state.selected_tag)
-                    except ValueError as e:
-                        set_error(state, str(e))
+                            set_success(state, message)
+                        else:
+                            set_error(state, message)
 
                 state.creating_tag = False
                 state.renaming_tag = False
@@ -525,6 +599,10 @@ def main(stdscr) -> None:
 
             elif 32 <= key <= 126:  # Printable characters
                 state.tag_input += chr(key)
+
+        # ---------- LOGS TOGGLE ----------
+        elif key == ord("l"):
+            state.show_logs = not state.show_logs
 
         # ---------- QUIT ----------
         elif key == ord("q"):
