@@ -12,8 +12,8 @@ HADES_SAVE_DIR = Path(
     "/mnt/jupiter/SteamLibrary/steamapps/compatdata/1145360/pfx/drive_c/users/steamuser/Documents/Saved Games/Hades"
 )
 
-BACKUP_ROOT = Path.home() / ".local/share/hades_backups"
-TAGS_DIR = BACKUP_ROOT / "tags"
+BACKUP_SAVE_ROOT = Path.home() / ".local/share/hades_backups"
+TAGS_DIR = BACKUP_SAVE_ROOT / "tags"
 
 # ==========================
 
@@ -78,19 +78,19 @@ def list_tags() -> List[str]:
 
 
 def list_snapshots() -> List[Path]:
-    if not BACKUP_ROOT.exists():
+    if not BACKUP_SAVE_ROOT.exists():
         return []
     return sorted(
-        [p for p in BACKUP_ROOT.iterdir() if p.is_dir() and p.name != "tags"],
+        [p for p in BACKUP_SAVE_ROOT.iterdir() if p.is_dir() and p.name != "tags"],
         reverse=True,
     )
 
 
-def backup(tags: List[str], note: Optional[str]) -> Path:
+def save(tags: List[str], note: Optional[str]) -> Path:
     assert_game_closed()
 
-    dest = BACKUP_ROOT / now_ts()
-    BACKUP_ROOT.mkdir(parents=True, exist_ok=True)
+    dest = BACKUP_SAVE_ROOT / now_ts()
+    BACKUP_SAVE_ROOT.mkdir(parents=True, exist_ok=True)
 
     shutil.copytree(HADES_SAVE_DIR, dest)
     write_meta(dest, tags, note)
@@ -118,7 +118,7 @@ def restore_by_tag(tag: str) -> None:
     if not matches:
         raise ValueError(f"No snapshots for tag '{tag}'")
 
-    restore(BACKUP_ROOT / sorted(matches)[-1])
+    restore(BACKUP_SAVE_ROOT / sorted(matches)[-1])
 
 
 def delete_snapshot(snapshot: Path) -> None:

@@ -9,9 +9,9 @@ def main() -> None:
     parser = argparse.ArgumentParser("Hades save backup tool")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    backup_p = sub.add_parser("backup")
-    backup_p.add_argument("--tag", action="append", default=[])
-    backup_p.add_argument("--note")
+    save_p = sub.add_parser("save")
+    save_p.add_argument("--tag", action="append", default=[])
+    save_p.add_argument("--note")
 
     list_p = sub.add_parser("list")
     list_p.add_argument("--meta", action="store_true")
@@ -26,8 +26,8 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    if args.cmd == "backup":
-        core.backup(args.tag, args.note)
+    if args.cmd == "save":
+        core.save(args.tag, args.note)
 
     elif args.cmd == "list":
         for snap in core.list_snapshots():
@@ -42,7 +42,7 @@ def main() -> None:
             print(tag)
 
     elif args.cmd == "restore":
-        core.restore(core.BACKUP_ROOT / args.name)
+        core.restore(core.BACKUP_SAVE_ROOT / args.name)
 
     elif args.cmd == "restore-tag":
         core.restore_by_tag(args.tag)

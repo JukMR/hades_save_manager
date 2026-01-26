@@ -98,7 +98,7 @@ def draw(stdscr, items: List[core.Path], idx: int) -> None:
     stdscr.addstr(
         h - 2,
         2,
-        "[↑↓] move  [b] backup  [r] restore  [t] restore-tag  [d] delete  [q] quit",
+        "[↑↓] move  [s] save  [r] restore  [t] restore-tag  [d] delete  [q] quit",
         curses.color_pair(5),
     )
 
@@ -141,7 +141,7 @@ def main(stdscr) -> None:
                 "Create backup",
                 "Create a new snapshot with these tags?",
             ):
-                core.backup([t.strip() for t in tags if t.strip()], note)
+                core.save([t.strip() for t in tags if t.strip()], note)
 
         # ---------- RESTORE ----------
         elif key == ord("r") and items:
