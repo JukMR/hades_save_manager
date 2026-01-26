@@ -415,6 +415,60 @@ def main(stdscr) -> None:
         draw(stdscr, state)
         key = stdscr.getch()
 
+        # ==========================================================
+        # TAG INPUT MODE (OVERRIDES EVERYTHING)
+        # ==========================================================
+        if state.creating_tag or state.renaming_tag:
+            if key in (27,):  # Esc
+                state.creating_tag = False
+                state.renaming_tag = False
+                state.tag_input = ""
+                curses.curs_set(0)
+
+            elif key in (10, 13):  # Enter
+                name = state.tag_input.strip()
+                if name:
+                    if state.creating_tag:
+                        core.TAGS_DIR.mkdir(parents=True, exist_ok=True)
+                        tag_file = core.TAGS_DIR / f"{name}.json"
+
+                        if tag_file.exists():
+                            set_error(state, f"Tag '{name}' already exists")
+                        else:
+                            tag_file.write_text("[]")
+                            set_success(state, f"Created tag '{name}'")
+
+                            # auto-select newly created tag
+                            state.selected_tag = name
+                            core.set_last_tag(name)
+                            state.tag_idx = core.list_tags().index(name) + 1
+
+                    else:  # renaming
+                        tags = core.list_tags()
+                        if 0 < state.tag_idx <= len(tags):
+                            old = tags[state.tag_idx - 1]
+                            result, message = core.rename_tag(old, name)
+                            if result:
+                                if state.selected_tag == old:
+                                    state.selected_tag = name
+                                    core.set_last_tag(name)
+                                set_success(state, message)
+                            else:
+                                set_error(state, message)
+
+                state.creating_tag = False
+                state.renaming_tag = False
+                state.tag_input = ""
+                curses.curs_set(0)
+
+            elif key in (curses.KEY_BACKSPACE, 127, 8):
+                state.tag_input = state.tag_input[:-1]
+
+            elif 32 <= key <= 126:
+                state.tag_input += chr(key)
+
+            continue  # 🔴 critical: block all other handling
+
         # ---------- PANE NAVIGATION ----------
         if key == 9:  # Tab
             state.active_pane = (state.active_pane + 1) % 3
