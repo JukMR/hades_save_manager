@@ -16,7 +16,7 @@ def init_colors() -> None:
     curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_CYAN)  # selected row
     curses.init_pair(3, curses.COLOR_YELLOW, -1)  # metadata
     curses.init_pair(4, curses.COLOR_RED, -1)  # warnings
-    curses.init_pair(5, curses.COLOR_GREEN, -1)  # success / hints
+    curses.init_pair(5, curses.COLOR_GREEN, -1)  # hints / actions
 
 
 # ---------- UI helpers ----------
@@ -33,7 +33,7 @@ def prompt(stdscr, y: int, msg: str) -> str:
 
 def confirm(stdscr, title: str, msg: str) -> bool:
     h, w = stdscr.getmaxyx()
-    win_h, win_w = 7, max(len(msg) + 6, 40)
+    win_h, win_w = 7, max(len(msg) + 6, 44)
 
     win = curses.newwin(
         win_h,
@@ -131,25 +131,47 @@ def main(stdscr) -> None:
         elif key == ord("q"):
             break
 
+        # ---------- BACKUP ----------
         elif key == ord("b"):
             tags = prompt(stdscr, 1, "Tags (comma): ").split(",")
             note = prompt(stdscr, 2, "Note: ")
-            core.backup([t.strip() for t in tags if t.strip()], note)
 
+            if confirm(
+                stdscr,
+                "Create backup",
+                "Create a new snapshot with these tags?",
+            ):
+                core.backup([t.strip() for t in tags if t.strip()], note)
+
+        # ---------- RESTORE ----------
         elif key == ord("r") and items:
             snap = items[idx]
-            if confirm(stdscr, "Restore snapshot", f"Restore {snap.name}?"):
+            if confirm(
+                stdscr,
+                "Restore snapshot",
+                f"Restore {snap.name}? Current save will be replaced.",
+            ):
                 core.restore(snap)
 
+        # ---------- DELETE ----------
         elif key == ord("d") and items:
             snap = items[idx]
-            if confirm(stdscr, "Delete snapshot", f"Delete {snap.name}? This is permanent."):
+            if confirm(
+                stdscr,
+                "Delete snapshot",
+                f"Delete {snap.name}? This is permanent.",
+            ):
                 core.delete_snapshot(snap)
                 idx = 0
 
+        # ---------- RESTORE BY TAG ----------
         elif key == ord("t"):
             tag = prompt(stdscr, 1, "Restore tag: ")
-            if confirm(stdscr, "Restore by tag", f"Restore latest snapshot tagged '{tag}'?"):
+            if confirm(
+                stdscr,
+                "Restore by tag",
+                f"Restore latest snapshot tagged '{tag}'?",
+            ):
                 core.restore_by_tag(tag)
 
 
