@@ -125,7 +125,7 @@ def draw(stdscr, state: UIState) -> None:
         state.snapshot_idx = 0
 
     if tags:
-        state.tag_idx = max(0, min(state.tag_idx, len(tags) - 1))
+        state.tag_idx = max(0, min(state.tag_idx, len(tags)))
     else:
         state.tag_idx = 0
 
@@ -237,30 +237,38 @@ def draw_tags_pane(stdscr, tags: List[str], state: UIState, offset_x: int, pane_
         stdscr.addstr(4, offset_x + 2, "Press [n] to create a tag", curses.color_pair(5))
         return
 
-    # Draw tag list
-    for i, tag in enumerate(tags[:max_y]):
-        y = 2 + i
-        count = core.get_tag_count(tag)
+    display_tags = ["+ New tag"] + tags
 
-        # Determine highlighting
+    for i, item in enumerate(display_tags[:max_y]):
+        y = 2 + i
         is_selected = i == state.tag_idx and state.active_pane == 2
+
+        # ----- virtual row -----
+        if item == "+ New tag":
+            attr = curses.color_pair(5)
+            if is_selected:
+                attr |= curses.A_REVERSE
+            stdscr.addstr(y, offset_x + 2, item.ljust(pane_w - 4), attr)
+            continue
+
+        # ----- real tag -----
+        tag = item
+        count = core.get_tag_count(tag)
         is_active = tag == state.selected_tag
 
         if is_selected:
-            if is_active:
-                # Active tag, selected row in active pane
-                stdscr.addstr(y, offset_x + 2, f"{tag} ({count})".ljust(pane_w - 4), curses.color_pair(8))
-            else:
-                # Selected row in active pane
-                stdscr.addstr(y, offset_x + 2, f"{tag} ({count})".ljust(pane_w - 4), curses.color_pair(2))
+            color = curses.color_pair(8 if is_active else 2)
         elif is_active:
-            # Active tag but not selected
-            stdscr.addstr(
-                y, offset_x + 2, f"{tag} ({count})".ljust(pane_w - 4), curses.color_pair(7) | curses.A_REVERSE
-            )
+            color = curses.color_pair(7) | curses.A_REVERSE
         else:
-            # Normal tag
-            stdscr.addstr(y, offset_x + 2, f"{tag} ({count})".ljust(pane_w - 4))
+            color = curses.A_NORMAL
+
+        stdscr.addstr(
+            y,
+            offset_x + 2,
+            f"{tag} ({count})".ljust(pane_w - 4),
+            color,
+        )
 
 
 def draw_tag_input(stdscr, state: UIState, offset_x: int, pane_w: int) -> None:
@@ -369,6 +377,8 @@ def set_success(state: UIState, message: str) -> None:
 
 def main(stdscr) -> None:
     curses.curs_set(0)
+    stdscr.keypad(True)  # ← YOU MUST HAVE THIS
+
     init_colors()
 
     state = UIState()
@@ -439,26 +449,22 @@ def main(stdscr) -> None:
 
             # ---------- BACKUP ----------
             elif key == ord("s"):
-                curses.curs_set(1)  # Show cursor
-                tags = prompt(stdscr, 1, "Tags (comma): ").split(",")
-                note = prompt(stdscr, 2, "Note: ")
-                curses.curs_set(0)  # Hide cursor
+                curses.curs_set(1)
+                note = prompt(stdscr, 1, "Note: ")
+                curses.curs_set(0)
+
+                tag_list = [state.selected_tag] if state.selected_tag else []
 
                 if confirm(
                     stdscr,
                     "Create backup",
-                    "Create a new snapshot with these tags?",
+                    f"Create snapshot{' with tag ' + state.selected_tag if state.selected_tag else ''}?",
                 ):
-                    tag_list = [t.strip() for t in tags if t.strip()]
                     result, message = core.save(tag_list, note)
 
                     if result:
-                        # Update last tag if tags were provided
-                        if tag_list:
-                            core.set_last_tag(tag_list[0])
-                            state.selected_tag = tag_list[0]
-                            state.snapshot_idx = 0
                         set_success(state, message)
+                        state.snapshot_idx = 0
                     else:
                         set_error(state, message)
 
@@ -491,32 +497,30 @@ def main(stdscr) -> None:
                     else:
                         set_error(state, message)
 
-        # ---------- TAGS PANE ACTIONS ----------
+            # ---------- TAGS PANE ACTIONS ----------
         elif state.active_pane == 2:
             tags = core.list_tags()
 
-            if key == curses.KEY_UP and tags:
+            if key == curses.KEY_UP:
                 state.tag_idx = max(0, state.tag_idx - 1)
 
-            elif key == curses.KEY_DOWN and tags:
-                state.tag_idx = min(len(tags) - 1, state.tag_idx + 1)
+            elif key == curses.KEY_DOWN:
+                state.tag_idx = min(len(tags), state.tag_idx + 1)
+
+            elif key == ord("\n"):
+                if state.tag_idx == 0:
+                    state.creating_tag = True
+                    state.tag_input = ""
+                    curses.curs_set(1)
+                else:
+                    selected_tag = tags[state.tag_idx - 1]
+                    state.selected_tag = selected_tag
+                    core.set_last_tag(selected_tag)
+                    state.active_pane = 0
+                    state.snapshot_idx = 0
 
             elif key == ord("q"):
                 break
-
-            elif key == ord("\n") and tags:
-                # Select tag for filtering
-                selected_tag = tags[state.tag_idx]
-                if state.selected_tag == selected_tag:
-                    # Toggle off if already selected
-                    state.selected_tag = None
-                    core.set_last_tag("")
-                else:
-                    # Select new tag
-                    state.selected_tag = selected_tag
-                    core.set_last_tag(selected_tag)
-                    state.active_pane = 0  # Switch to snapshots pane
-                    state.snapshot_idx = 0
 
             # ---------- NEW TAG ----------
             elif key == ord("n"):
