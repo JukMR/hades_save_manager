@@ -45,19 +45,30 @@ def confirm(stdscr, title: str, msg: str) -> bool:
         (h - win_h) // 2,
         (w - win_w) // 2,
     )
-    win.box()
+    win.keypad(True)
 
-    win.addstr(1, 2, title, curses.color_pair(4) | curses.A_BOLD)
-    win.addstr(3, 2, msg)
-    win.addstr(5, 2, "[y] Yes    [n] No", curses.color_pair(5))
-
-    win.refresh()
+    selected = 0  # 0 = Yes, 1 = No
 
     while True:
+        win.clear()
+        win.box()
+        win.addstr(1, 2, title, curses.color_pair(4) | curses.A_BOLD)
+        win.addstr(3, 2, msg)
+
+        yes_attr = curses.A_REVERSE if selected == 0 else curses.A_NORMAL
+        no_attr = curses.A_REVERSE if selected == 1 else curses.A_NORMAL
+
+        win.addstr(5, 8, " Yes ", yes_attr | curses.color_pair(5))
+        win.addstr(5, 16, " No ", no_attr | curses.color_pair(5))
+        win.refresh()
+
         k = win.getch()
-        if k in (ord("y"), ord("Y")):
-            return True
-        if k in (ord("n"), ord("N"), 27):
+
+        if k in (curses.KEY_LEFT, curses.KEY_RIGHT):
+            selected = 1 - selected
+        elif k in (10, 13):  # Enter
+            return selected == 0
+        elif k in (27,):  # Esc
             return False
 
 
