@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import curses
-from typing import List
+from typing import List, Optional
 
 import core
 
@@ -17,6 +17,9 @@ def init_colors() -> None:
     curses.init_pair(3, curses.COLOR_YELLOW, -1)  # metadata
     curses.init_pair(4, curses.COLOR_RED, -1)  # warnings
     curses.init_pair(5, curses.COLOR_GREEN, -1)  # hints / actions
+    curses.init_pair(6, curses.COLOR_BLACK, curses.COLOR_WHITE)  # active pane border
+    curses.init_pair(7, curses.COLOR_MAGENTA, -1)  # tags
+    curses.init_pair(8, curses.COLOR_WHITE, curses.COLOR_BLUE)  # active tag
 
 
 # ---------- UI helpers ----------
@@ -57,52 +60,241 @@ def confirm(stdscr, title: str, msg: str) -> bool:
             return False
 
 
-def draw(stdscr, items: List[core.Path], idx: int) -> None:
+# ---------- UI state ----------
+
+
+class UIState:
+    def __init__(self):
+        self.active_pane = 0  # 0=snapshots, 1=metadata, 2=tags
+        self.snapshot_idx = 0
+        self.tag_idx = 0
+        self.selected_tag = core.get_last_tag()
+        self.creating_tag = False
+        self.renaming_tag = False
+        self.merging_tag = False
+        self.tag_input = ""
+        self.error_message = ""
+        self.error_timer = 0
+
+    def get_filtered_snapshots(self, all_snapshots: List[core.Path]) -> List[core.Path]:
+        """Get snapshots filtered by selected tag"""
+        if not self.selected_tag:
+            return all_snapshots
+
+        tagged_snapshots = core.snapshots_for_tag(self.selected_tag)
+        return [s for s in all_snapshots if s.name in tagged_snapshots]
+
+
+# ---------- drawing functions ----------
+
+
+def draw(stdscr, state: UIState) -> None:
     stdscr.clear()
     h, w = stdscr.getmaxyx()
-    left_w = w // 2
 
-    stdscr.addstr(0, 2, "Snapshots", curses.color_pair(1) | curses.A_BOLD)
-    stdscr.addstr(0, left_w + 2, "Metadata", curses.color_pair(1) | curses.A_BOLD)
+    # Calculate pane widths
+    snapshots_w = w // 3
+    metadata_w = w // 3
+    tags_w = w - snapshots_w - metadata_w - 4  # Account for borders
 
-    for i, snap in enumerate(items[: h - 4]):
-        y = 2 + i
-        if i == idx:
-            stdscr.addstr(y, 2, snap.name.ljust(left_w - 4), curses.color_pair(2))
-        else:
-            stdscr.addstr(y, 2, snap.name)
+    # Draw pane separators and headers
+    draw_pane_headers(stdscr, snapshots_w, metadata_w, tags_w, state.active_pane)
 
-    if items:
-        meta = core.read_meta(items[idx])
-        y = 2
-        stdscr.addstr(
-            y,
-            left_w + 2,
-            f"Created: {meta.get('created_at', '')}",
-            curses.color_pair(3),
-        )
-        y += 2
-        stdscr.addstr(
-            y,
-            left_w + 2,
-            f"Tags: {', '.join(meta.get('tags', []))}",
-            curses.color_pair(3),
-        )
-        y += 2
-        stdscr.addstr(y, left_w + 2, "Note:", curses.A_BOLD)
-        y += 1
-        for line in (meta.get("note") or "").splitlines():
-            stdscr.addstr(y, left_w + 4, line)
-            y += 1
+    # Get data
+    all_snapshots = core.list_snapshots()
+    filtered_snapshots = state.get_filtered_snapshots(all_snapshots)
+    tags = core.list_tags()
 
-    stdscr.addstr(
-        h - 2,
-        2,
-        "[↑↓] move  [s] save  [r] restore  [t] restore-tag  [d] delete  [q] quit",
-        curses.color_pair(5),
-    )
+    # Ensure indexes are valid
+    if filtered_snapshots:
+        state.snapshot_idx = max(0, min(state.snapshot_idx, len(filtered_snapshots) - 1))
+    else:
+        state.snapshot_idx = 0
+
+    if tags:
+        state.tag_idx = max(0, min(state.tag_idx, len(tags) - 1))
+    else:
+        state.tag_idx = 0
+
+    # Draw content in each pane
+    draw_snapshots_pane(stdscr, filtered_snapshots, state, snapshots_w, h)
+    draw_metadata_pane(stdscr, filtered_snapshots, state, snapshots_w, metadata_w, h)
+    draw_tags_pane(stdscr, tags, state, snapshots_w + metadata_w, tags_w, h)
+
+    # Draw help/status bar
+    draw_help_bar(stdscr, h, w, state)
 
     stdscr.refresh()
+
+
+def draw_pane_headers(stdscr, snapshots_w: int, metadata_w: int, tags_w: int, active_pane: int) -> None:
+    """Draw pane headers with active pane highlighting"""
+    # Determine header colors
+    colors = [
+        curses.color_pair(1) | curses.A_BOLD,  # default cyan
+        curses.color_pair(1) | curses.A_BOLD,  # default cyan
+        curses.color_pair(1) | curses.A_BOLD,  # default cyan
+    ]
+
+    if active_pane >= 0 and active_pane < 3:
+        colors[active_pane] = curses.color_pair(6) | curses.A_BOLD  # active pane
+
+    # Draw headers
+    stdscr.addstr(0, 2, "Snapshots", colors[0])
+    stdscr.addstr(0, snapshots_w + 3, "Metadata", colors[1])
+    stdscr.addstr(0, snapshots_w + metadata_w + 4, "Tags", colors[2])
+
+    # Draw vertical separators
+    h, w = stdscr.getmaxyx()
+    vline = "│"
+
+    for y in range(1, h):
+        stdscr.addch(y, snapshots_w + 1, ord(vline))
+        stdscr.addch(y, snapshots_w + metadata_w + 2, ord(vline))
+
+
+def draw_snapshots_pane(stdscr, snapshots: List[core.Path], state: UIState, pane_w: int, h: int) -> None:
+    """Draw the snapshots list pane"""
+    max_y = h - 3  # Leave space for header and help
+
+    if not snapshots:
+        if state.selected_tag:
+            stdscr.addstr(2, 2, f"No snapshots with tag '{state.selected_tag}'", curses.color_pair(4))
+        else:
+            stdscr.addstr(2, 2, "No snapshots available", curses.color_pair(4))
+        return
+
+    for i, snap in enumerate(snapshots[:max_y]):
+        y = 2 + i
+
+        if i == state.snapshot_idx and state.active_pane == 0:
+            # Active row in active pane
+            stdscr.addstr(y, 2, snap.name.ljust(pane_w - 4), curses.color_pair(2))
+        elif i == state.snapshot_idx:
+            # Selected row but not active pane
+            stdscr.addstr(y, 2, snap.name.ljust(pane_w - 4), curses.A_REVERSE)
+        else:
+            # Normal row
+            stdscr.addstr(y, 2, snap.name[: pane_w - 4])
+
+
+def draw_metadata_pane(stdscr, snapshots: List[core.Path], state: UIState, offset_x: int, pane_w: int, h: int) -> None:
+    """Draw the metadata pane"""
+    if not snapshots:
+        stdscr.addstr(2, offset_x + 2, "No snapshots available", curses.color_pair(4))
+        return
+
+    snap = snapshots[state.snapshot_idx]
+    meta = core.read_meta(snap)
+
+    y = 2
+    stdscr.addstr(
+        y,
+        offset_x + 2,
+        f"Created: {meta.get('created_at', '')}",
+        curses.color_pair(3),
+    )
+    y += 2
+    stdscr.addstr(
+        y,
+        offset_x + 2,
+        f"Tags: {', '.join(meta.get('tags', []))}",
+        curses.color_pair(7),
+    )
+    y += 2
+    stdscr.addstr(y, offset_x + 2, "Note:", curses.A_BOLD)
+    y += 1
+    for line in (meta.get("note") or "").splitlines()[: h - 7]:  # Limit lines
+        if y < h - 2:
+            stdscr.addstr(y, offset_x + 4, line[: pane_w - 6])
+            y += 1
+
+
+def draw_tags_pane(stdscr, tags: List[str], state: UIState, offset_x: int, pane_w: int, h: int) -> None:
+    """Draw the tags management pane"""
+    max_y = h - 3
+
+    # Handle tag creation/editing modes
+    if state.creating_tag or state.renaming_tag:
+        draw_tag_input(stdscr, state, offset_x, pane_w)
+        return
+
+    if not tags:
+        stdscr.addstr(2, offset_x + 2, "No tags available", curses.color_pair(4))
+        stdscr.addstr(4, offset_x + 2, "Press [n] to create a tag", curses.color_pair(5))
+        return
+
+    # Draw tag list
+    for i, tag in enumerate(tags[:max_y]):
+        y = 2 + i
+        count = core.get_tag_count(tag)
+
+        # Determine highlighting
+        is_selected = i == state.tag_idx and state.active_pane == 2
+        is_active = tag == state.selected_tag
+
+        if is_selected:
+            if is_active:
+                # Active tag, selected row in active pane
+                stdscr.addstr(y, offset_x + 2, f"{tag} ({count})".ljust(pane_w - 4), curses.color_pair(8))
+            else:
+                # Selected row in active pane
+                stdscr.addstr(y, offset_x + 2, f"{tag} ({count})".ljust(pane_w - 4), curses.color_pair(2))
+        elif is_active:
+            # Active tag but not selected
+            stdscr.addstr(
+                y, offset_x + 2, f"{tag} ({count})".ljust(pane_w - 4), curses.color_pair(7) | curses.A_REVERSE
+            )
+        else:
+            # Normal tag
+            stdscr.addstr(y, offset_x + 2, f"{tag} ({count})".ljust(pane_w - 4))
+
+
+def draw_tag_input(stdscr, state: UIState, offset_x: int, pane_w: int) -> None:
+    """Draw tag input field for creation/renaming"""
+    if state.creating_tag:
+        prompt = "New tag: "
+    else:
+        prompt = "Rename to: "
+
+    stdscr.addstr(2, offset_x + 2, prompt, curses.A_BOLD)
+    input_field = state.tag_input + "_"
+    stdscr.addstr(3, offset_x + 2, input_field.ljust(pane_w - 4), curses.color_pair(2))
+    stdscr.addstr(5, offset_x + 2, "[Enter] confirm  [Esc] cancel", curses.color_pair(5))
+
+
+def draw_help_bar(stdscr, h: int, w: int, state: UIState) -> None:
+    """Draw the help/status bar"""
+    # Draw error message if active
+    if state.error_message and state.error_timer > 0:
+        error_y = h - 3
+        stdscr.addstr(error_y, 2, state.error_message[: w - 4], curses.color_pair(4))
+        state.error_timer -= 1
+        help_y = h - 2
+    else:
+        help_y = h - 2
+
+    help_texts = {
+        0: "[↑↓] move  [Tab] switch pane  [Enter] select  [s] save  [r] restore  [d] delete  [q] quit",
+        1: "[Tab] switch pane  [q] quit",  # Metadata pane has fewer actions
+        2: "[↑↓] move  [Tab] switch pane  [Enter] filter  [n] new  [R] rename  [D] delete  [m] merge  [q] quit",
+    }
+
+    help_text = help_texts.get(state.active_pane, help_texts[0])
+
+    # Add current filter info if any
+    if state.selected_tag:
+        filter_info = f" | Filter: {state.selected_tag}"
+        if len(help_text) + len(filter_info) < w - 2:
+            help_text += filter_info
+
+    stdscr.addstr(help_y, 2, help_text[: w - 4], curses.color_pair(5))
+
+
+def set_error(state: UIState, message: str) -> None:
+    """Set an error message to display"""
+    state.error_message = message
+    state.error_timer = 10  # Show for 10 frames
 
 
 # ---------- main loop ----------
@@ -112,67 +304,231 @@ def main(stdscr) -> None:
     curses.curs_set(0)
     init_colors()
 
-    idx = 0
+    state = UIState()
+
+    # Initialize with last used tag
+    all_snapshots = core.list_snapshots()
+    if state.selected_tag and all_snapshots:
+        tagged_snapshots = state.get_filtered_snapshots(all_snapshots)
+        if not tagged_snapshots:
+            # No snapshots with last tag, fall back to newest
+            state.selected_tag = None
+    elif not state.selected_tag and all_snapshots:
+        # No last tag selected, try to find the most recently used tag
+        tags = core.list_tags()
+        if tags:
+            # Find tag with most recent snapshot
+            latest_tag = None
+            latest_time = None
+            for tag in tags:
+                tag_snapshots = core.snapshots_for_tag(tag)
+                if tag_snapshots:
+                    # Get the most recent snapshot for this tag
+                    latest_snapshot = sorted(tag_snapshots)[-1]
+                    if latest_time is None or latest_snapshot > latest_time:
+                        latest_time = latest_snapshot
+                        latest_tag = tag
+
+            if latest_tag:
+                state.selected_tag = latest_tag
 
     while True:
-        items = core.list_snapshots()
-        if items:
-            idx = max(0, min(idx, len(items) - 1))
-
-        draw(stdscr, items, idx)
+        draw(stdscr, state)
         key = stdscr.getch()
 
-        if key == curses.KEY_UP:
-            idx = max(0, idx - 1)
+        # ---------- PANE NAVIGATION ----------
+        if key == 9:  # Tab
+            state.active_pane = (state.active_pane + 1) % 3
+            if state.active_pane == 1:  # Skip metadata pane for navigation
+                state.active_pane = (state.active_pane + 1) % 3
+            continue
 
-        elif key == curses.KEY_DOWN:
-            idx = min(len(items) - 1, idx + 1)
+        elif key in (curses.KEY_LEFT, curses.KEY_RIGHT) and state.active_pane != 1:
+            # Left/right arrow navigation (skip metadata pane)
+            if key == curses.KEY_LEFT:
+                new_pane = state.active_pane - 1
+            else:
+                new_pane = state.active_pane + 1
 
+            if new_pane == 1:  # Skip metadata pane
+                new_pane = new_pane + (1 if key == curses.KEY_RIGHT else -1)
+
+            state.active_pane = max(0, min(2, new_pane))
+
+        # ---------- SNAPSHOT PANE ACTIONS ----------
+        elif state.active_pane == 0:
+            filtered_snapshots = state.get_filtered_snapshots(all_snapshots)
+
+            if key == curses.KEY_UP and filtered_snapshots:
+                state.snapshot_idx = max(0, state.snapshot_idx - 1)
+
+            elif key == curses.KEY_DOWN and filtered_snapshots:
+                state.snapshot_idx = min(len(filtered_snapshots) - 1, state.snapshot_idx + 1)
+
+            elif key == ord("q"):
+                break
+
+            # ---------- BACKUP ----------
+            elif key == ord("s"):
+                curses.curs_set(1)  # Show cursor
+                tags = prompt(stdscr, 1, "Tags (comma): ").split(",")
+                note = prompt(stdscr, 2, "Note: ")
+                curses.curs_set(0)  # Hide cursor
+
+                if confirm(
+                    stdscr,
+                    "Create backup",
+                    "Create a new snapshot with these tags?",
+                ):
+                    tag_list = [t.strip() for t in tags if t.strip()]
+                    core.save(tag_list, note)
+
+                    # Update last tag if tags were provided
+                    if tag_list:
+                        core.set_last_tag(tag_list[0])
+                        state.selected_tag = tag_list[0]
+                        state.snapshot_idx = 0
+
+            # ---------- RESTORE ----------
+            elif key == ord("r") and filtered_snapshots:
+                snap = filtered_snapshots[state.snapshot_idx]
+                if confirm(
+                    stdscr,
+                    "Restore snapshot",
+                    f"Restore {snap.name}? Current save will be replaced.",
+                ):
+                    core.restore(snap)
+
+            # ---------- DELETE ----------
+            elif key == ord("d") and filtered_snapshots:
+                snap = filtered_snapshots[state.snapshot_idx]
+                if confirm(
+                    stdscr,
+                    "Delete snapshot",
+                    f"Delete {snap.name}? This is permanent.",
+                ):
+                    core.delete_snapshot(snap)
+                    state.snapshot_idx = max(0, state.snapshot_idx - 1)
+
+        # ---------- TAGS PANE ACTIONS ----------
+        elif state.active_pane == 2:
+            tags = core.list_tags()
+
+            if key == curses.KEY_UP and tags:
+                state.tag_idx = max(0, state.tag_idx - 1)
+
+            elif key == curses.KEY_DOWN and tags:
+                state.tag_idx = min(len(tags) - 1, state.tag_idx + 1)
+
+            elif key == ord("q"):
+                break
+
+            elif key == ord("\n") and tags:
+                # Select tag for filtering
+                selected_tag = tags[state.tag_idx]
+                if state.selected_tag == selected_tag:
+                    # Toggle off if already selected
+                    state.selected_tag = None
+                    core.set_last_tag("")
+                else:
+                    # Select new tag
+                    state.selected_tag = selected_tag
+                    core.set_last_tag(selected_tag)
+                    state.active_pane = 0  # Switch to snapshots pane
+                    state.snapshot_idx = 0
+
+            # ---------- NEW TAG ----------
+            elif key == ord("n"):
+                state.creating_tag = True
+                state.tag_input = ""
+                curses.curs_set(1)  # Show cursor
+
+            # ---------- RENAME TAG ----------
+            elif key == ord("R") and tags:
+                state.renaming_tag = True
+                state.tag_input = tags[state.tag_idx]
+                curses.curs_set(1)  # Show cursor
+
+            # ---------- DELETE TAG ----------
+            elif key == ord("D") and tags:
+                tag = tags[state.tag_idx]
+                if confirm(
+                    stdscr,
+                    "Delete tag",
+                    f"Delete tag '{tag}'? This will remove it from all snapshots.",
+                ):
+                    try:
+                        core.delete_tag(tag)
+                        if state.selected_tag == tag:
+                            state.selected_tag = None
+                            core.set_last_tag("")
+                        state.tag_idx = max(0, state.tag_idx - 1)
+                    except ValueError as e:
+                        set_error(state, str(e))
+
+            # ---------- MERGE TAG ----------
+            elif key == ord("m") and tags:
+                # Simplified merge: merge selected tag into most recent tag
+                if len(tags) > 1:
+                    source_tag = tags[state.tag_idx]
+                    # Find target tag (next one in list, or first if at end)
+                    target_idx = (state.tag_idx + 1) % len(tags)
+                    target_tag = tags[target_idx]
+
+                    if confirm(
+                        stdscr,
+                        "Merge tags",
+                        f"Merge '{source_tag}' into '{target_tag}'?",
+                    ):
+                        try:
+                            core.merge_tags(source_tag, target_tag)
+                            if state.selected_tag == source_tag:
+                                state.selected_tag = target_tag
+                                core.set_last_tag(target_tag)
+                            state.tag_idx = target_idx
+                        except ValueError as e:
+                            set_error(state, str(e))
+
+        # ---------- TAG INPUT HANDLING ----------
+        elif state.creating_tag or state.renaming_tag:
+            if key == 27:  # Escape
+                state.creating_tag = False
+                state.renaming_tag = False
+                state.tag_input = ""
+                curses.curs_set(0)  # Hide cursor
+
+            elif key == ord("\n"):  # Enter
+                if state.tag_input.strip():
+                    try:
+                        if state.creating_tag:
+                            # Just create the tag (it will be empty until used)
+                            core.TAGS_DIR.mkdir(parents=True, exist_ok=True)
+                            tag_file = core.TAGS_DIR / f"{state.tag_input.strip()}.json"
+                            if not tag_file.exists():
+                                tag_file.write_text("[]")
+                        elif state.renaming_tag and state.tag_idx < len(core.list_tags()):
+                            old_tag = core.list_tags()[state.tag_idx]
+                            core.rename_tag(old_tag, state.tag_input.strip())
+                            if state.selected_tag == old_tag:
+                                state.selected_tag = state.tag_input.strip()
+                                core.set_last_tag(state.selected_tag)
+                    except ValueError as e:
+                        set_error(state, str(e))
+
+                state.creating_tag = False
+                state.renaming_tag = False
+                state.tag_input = ""
+                curses.curs_set(0)  # Hide cursor
+
+            elif key == curses.KEY_BACKSPACE or key == 127:
+                state.tag_input = state.tag_input[:-1]
+
+            elif 32 <= key <= 126:  # Printable characters
+                state.tag_input += chr(key)
+
+        # ---------- QUIT ----------
         elif key == ord("q"):
             break
-
-        # ---------- BACKUP ----------
-        elif key == ord("b"):
-            tags = prompt(stdscr, 1, "Tags (comma): ").split(",")
-            note = prompt(stdscr, 2, "Note: ")
-
-            if confirm(
-                stdscr,
-                "Create backup",
-                "Create a new snapshot with these tags?",
-            ):
-                core.save([t.strip() for t in tags if t.strip()], note)
-
-        # ---------- RESTORE ----------
-        elif key == ord("r") and items:
-            snap = items[idx]
-            if confirm(
-                stdscr,
-                "Restore snapshot",
-                f"Restore {snap.name}? Current save will be replaced.",
-            ):
-                core.restore(snap)
-
-        # ---------- DELETE ----------
-        elif key == ord("d") and items:
-            snap = items[idx]
-            if confirm(
-                stdscr,
-                "Delete snapshot",
-                f"Delete {snap.name}? This is permanent.",
-            ):
-                core.delete_snapshot(snap)
-                idx = 0
-
-        # ---------- RESTORE BY TAG ----------
-        elif key == ord("t"):
-            tag = prompt(stdscr, 1, "Restore tag: ")
-            if confirm(
-                stdscr,
-                "Restore by tag",
-                f"Restore latest snapshot tagged '{tag}'?",
-            ):
-                core.restore_by_tag(tag)
 
 
 if __name__ == "__main__":

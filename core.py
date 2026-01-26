@@ -14,6 +14,7 @@ HADES_SAVE_DIR = Path(
 
 BACKUP_SAVE_ROOT = Path.home() / ".local/share/hades_backups"
 TAGS_DIR = BACKUP_SAVE_ROOT / "tags"
+CONFIG_FILE = BACKUP_SAVE_ROOT / "config.json"
 
 # ==========================
 
@@ -72,6 +73,142 @@ def list_tags() -> List[str]:
     if not TAGS_DIR.exists():
         return []
     return sorted(p.stem for p in TAGS_DIR.iterdir())
+
+
+def get_tag_count(tag: str) -> int:
+    """Get number of snapshots for a given tag"""
+    return len(snapshots_for_tag(tag))
+
+
+# ---------- config ----------
+
+
+def get_last_tag() -> Optional[str]:
+    """Get the most recently used tag"""
+    if not CONFIG_FILE.exists():
+        return None
+
+    try:
+        config = json.loads(CONFIG_FILE.read_text())
+        return config.get("last_tag")
+    except (json.JSONDecodeError, KeyError):
+        return None
+
+
+def set_last_tag(tag: str) -> None:
+    """Set the most recently used tag"""
+    BACKUP_SAVE_ROOT.mkdir(parents=True, exist_ok=True)
+
+    config = {}
+    if CONFIG_FILE.exists():
+        try:
+            config = json.loads(CONFIG_FILE.read_text())
+        except json.JSONDecodeError:
+            config = {}
+
+    config["last_tag"] = tag
+    CONFIG_FILE.write_text(json.dumps(config, indent=2))
+
+
+# ---------- tag management ----------
+
+
+def rename_tag(old_tag: str, new_tag: str) -> None:
+    """Rename a tag"""
+    if old_tag == new_tag:
+        return
+
+    old_file = TAGS_DIR / f"{old_tag}.json"
+    new_file = TAGS_DIR / f"{new_tag}.json"
+
+    if not old_file.exists():
+        raise ValueError(f"Tag '{old_tag}' does not exist")
+
+    if new_file.exists():
+        raise ValueError(f"Tag '{new_tag}' already exists")
+
+    TAGS_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Update tag file
+    snapshots = snapshots_for_tag(old_tag)
+    new_file.write_text(json.dumps(snapshots, indent=2))
+    old_file.unlink()
+
+    # Update metadata in all snapshots
+    for snapshot_name in snapshots:
+        snapshot_path = BACKUP_SAVE_ROOT / snapshot_name
+        if snapshot_path.exists():
+            meta = read_meta(snapshot_path)
+            tags = meta.get("tags", [])
+            if old_tag in tags:
+                tags.remove(old_tag)
+                tags.append(new_tag)
+                meta["tags"] = sorted(set(tags))
+                write_meta(snapshot_path, meta["tags"], meta.get("note"))
+
+
+def delete_tag(tag: str) -> None:
+    """Delete a tag completely"""
+    tag_file = TAGS_DIR / f"{tag}.json"
+
+    if not tag_file.exists():
+        raise ValueError(f"Tag '{tag}' does not exist")
+
+    # Remove tag from metadata in all snapshots
+    snapshots = snapshots_for_tag(tag)
+    for snapshot_name in snapshots:
+        snapshot_path = BACKUP_SAVE_ROOT / snapshot_name
+        if snapshot_path.exists():
+            meta = read_meta(snapshot_path)
+            tags = meta.get("tags", [])
+            if tag in tags:
+                tags.remove(tag)
+                meta["tags"] = sorted(set(tags))
+                write_meta(snapshot_path, meta["tags"], meta.get("note"))
+
+    # Delete tag file
+    tag_file.unlink()
+
+
+def merge_tags(source_tag: str, target_tag: str) -> None:
+    """Merge source_tag into target_tag"""
+    if source_tag == target_tag:
+        return
+
+    source_file = TAGS_DIR / f"{source_tag}.json"
+    target_file = TAGS_DIR / f"{target_tag}.json"
+
+    if not source_file.exists():
+        raise ValueError(f"Source tag '{source_tag}' does not exist")
+
+    TAGS_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Get all snapshots from both tags
+    source_snapshots = set(snapshots_for_tag(source_tag))
+    target_snapshots = set(snapshots_for_tag(target_tag))
+
+    # Merge snapshots
+    all_snapshots = source_snapshots.union(target_snapshots)
+
+    # Update target tag file
+    target_file.write_text(json.dumps(sorted(all_snapshots), indent=2))
+
+    # Update metadata for all affected snapshots
+    for snapshot_name in all_snapshots:
+        snapshot_path = BACKUP_SAVE_ROOT / snapshot_name
+        if snapshot_path.exists():
+            meta = read_meta(snapshot_path)
+            tags = set(meta.get("tags", []))
+
+            # Remove source tag, add target tag
+            tags.discard(source_tag)
+            tags.add(target_tag)
+
+            meta["tags"] = sorted(tags)
+            write_meta(snapshot_path, meta["tags"], meta.get("note"))
+
+    # Delete source tag file
+    source_file.unlink()
 
 
 # ---------- snapshots ----------
