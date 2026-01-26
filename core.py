@@ -25,52 +25,49 @@ LOG_FILE = BACKUP_SAVE_ROOT / "hades.log"
 
 class Logger:
     """Simple logging system for Hades backup operations"""
-    
+
     def __init__(self):
         self.logs: List[Tuple[datetime, str, str]] = []  # (timestamp, level, message)
         self.max_logs = 50  # Keep last 50 log entries
-    
+
     def log(self, level: str, message: str) -> None:
         """Add a log entry"""
         timestamp = datetime.now()
         entry = (timestamp, level, message)
         self.logs.append(entry)
-        
+
         # Keep only the last max_logs entries
         if len(self.logs) > self.max_logs:
-            self.logs = self.logs[-self.max_logs:]
-        
+            self.logs = self.logs[-self.max_logs :]
+
         # Also write to file
         self._write_to_file(timestamp, level, message)
-    
+
     def info(self, message: str) -> None:
         """Log an info message"""
         self.log("INFO", message)
-    
+
     def error(self, message: str) -> None:
         """Log an error message"""
         self.log("ERROR", message)
-    
+
     def success(self, message: str) -> None:
         """Log a success message"""
         self.log("SUCCESS", message)
-    
+
     def warning(self, message: str) -> None:
         """Log a warning message"""
         self.log("WARNING", message)
-    
+
     def get_recent_logs(self, count: int = 10) -> List[str]:
         """Get recent log entries as formatted strings"""
         recent = self.logs[-count:] if self.logs else []
-        return [
-            f"[{ts.strftime('%H:%M:%S')}] {level}: {msg}"
-            for ts, level, msg in recent
-        ]
-    
+        return [f"[{ts.strftime('%H:%M:%S')}] {level}: {msg}" for ts, level, msg in recent]
+
     def clear(self) -> None:
         """Clear all logs"""
         self.logs.clear()
-    
+
     def _write_to_file(self, timestamp: datetime, level: str, message: str) -> None:
         """Write log entry to file"""
         try:
@@ -91,12 +88,12 @@ def now_ts() -> str:
     return datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
 
 
-def assert_game_closed() -> None:
+def assert_game_folder_exist() -> None:
     if not HADES_SAVE_DIR.exists():
         raise RuntimeError("Hades save directory not found.")
 
 
-# ---------- metadata ----------
+# ---------- metadata ----------w
 
 
 def write_meta(snapshot: Path, tags: Iterable[str], note: Optional[str]) -> None:
@@ -335,7 +332,7 @@ def list_snapshots() -> List[Path]:
 def save(tags: List[str], note: Optional[str]) -> Tuple[Optional[Path], str]:
     """Create a new snapshot. Returns (path, message)"""
     try:
-        assert_game_closed()
+        assert_game_folder_exist()
 
         dest = BACKUP_SAVE_ROOT / now_ts()
         BACKUP_SAVE_ROOT.mkdir(parents=True, exist_ok=True)
@@ -360,7 +357,7 @@ def save(tags: List[str], note: Optional[str]) -> Tuple[Optional[Path], str]:
 def restore(snapshot: Path) -> Tuple[bool, str]:
     """Restore a snapshot. Returns (success, message)"""
     try:
-        assert_game_closed()
+        assert_game_folder_exist()
 
         tmp = HADES_SAVE_DIR.with_suffix(".tmp")
         if tmp.exists():
@@ -397,12 +394,26 @@ def restore_by_tag(tag: str) -> Tuple[bool, str]:
 
 
 def delete_snapshot(snapshot: Path) -> Tuple[bool, str]:
-    """Delete a snapshot. Returns (success, message)"""
+    """Delete a snapshot and clean up tag references."""
     try:
+        meta = read_meta(snapshot)
+        snapshot_name = snapshot.name
+
+        # Remove snapshot from tag files
+        for tag in meta.get("tags", []):
+            tag_file = TAGS_DIR / f"{tag}.json"
+            if tag_file.exists():
+                items = json.loads(tag_file.read_text())
+                if snapshot_name in items:
+                    items.remove(snapshot_name)
+                    tag_file.write_text(json.dumps(sorted(items), indent=2))
+
         shutil.rmtree(snapshot)
+
         success_msg = f"Deleted snapshot {snapshot.name}"
         logger.success(success_msg)
         return True, success_msg
+
     except Exception as e:
         error_msg = f"Failed to delete snapshot: {str(e)}"
         logger.error(error_msg)

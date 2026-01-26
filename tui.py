@@ -269,25 +269,25 @@ def draw_logs(stdscr, state: UIState, offset_x: int, width: int, h: int) -> None
     """Draw recent logs in a small panel"""
     if not state.show_logs:
         return
-    
+
     # Get recent logs
     logs = core.logger.get_recent_logs(8)
-    
+
     # Draw log border and header
     log_h = min(len(logs) + 2, h - 4)
     stdscr.addstr(h - log_h - 1, offset_x, "┌" + "─" * (width - 2) + "┐", curses.color_pair(1))
     stdscr.addstr(h - log_h, offset_x, "│ Logs ", curses.color_pair(1) | curses.A_BOLD)
     stdscr.addstr(h - log_h, offset_x + len("│ Logs "), " " * (width - len("│ Logs ") - 1) + "│", curses.color_pair(1))
-    
+
     # Draw log entries
     for i, log_line in enumerate(logs):
         y = h - log_h + 1 + i
         if y >= h - 1:
             break
-        
+
         # Truncate log line if too long
-        display_line = log_line[:width - 4]
-        
+        display_line = log_line[: width - 4]
+
         # Determine color based on log level
         if "ERROR" in log_line:
             color = curses.color_pair(4)
@@ -297,9 +297,9 @@ def draw_logs(stdscr, state: UIState, offset_x: int, width: int, h: int) -> None
             color = curses.color_pair(3)
         else:
             color = curses.color_pair(9)
-        
+
         stdscr.addstr(y, offset_x, f"│ {display_line.ljust(width - 4)} │", color)
-    
+
     # Draw bottom border
     stdscr.addstr(h - 1, offset_x, "└" + "─" * (width - 2) + "┘", curses.color_pair(1))
 
@@ -309,36 +309,36 @@ def draw_help_bar(stdscr, h: int, w: int, state: UIState) -> None:
     # Draw logs if enabled
     if state.show_logs:
         draw_logs(stdscr, state, 2, w, h)
-    
+
     # Draw error message if active
     if state.error_message and state.error_timer > 0:
         error_y = h - 3 if not state.show_logs else h - 2
-        stdscr.addstr(error_y, 2, state.error_message[:w-4], curses.color_pair(4))
+        stdscr.addstr(error_y, 2, state.error_message[: w - 4], curses.color_pair(4))
         state.error_timer -= 1
         help_y = h - 2 if not state.show_logs else h - 3
     else:
         help_y = h - 2 if not state.show_logs else h - 3
-    
+
     help_texts = {
         0: "[↑↓] move  [Tab] switch pane  [Enter] select  [s] save  [r] restore  [d] delete  [l] toggle logs  [q] quit",
         1: "[Tab] switch pane  [l] toggle logs  [q] quit",  # Metadata pane has fewer actions
-        2: "[↑↓] move  [Tab] switch pane  [Enter] filter  [n] new  [R] rename  [D] delete  [m] merge  [l] toggle logs  [q] quit"
+        2: "[↑↓] move  [Tab] switch pane  [Enter] filter  [n] new  [R] rename  [D] delete  [m] merge  [l] toggle logs  [q] quit",
     }
-    
+
     help_text = help_texts.get(state.active_pane, help_texts[0])
-    
+
     # Add current filter info if any
     if state.selected_tag:
         filter_info = f" | Filter: {state.selected_tag}"
         if len(help_text) + len(filter_info) < w - 2:
             help_text += filter_info
-    
+
     # Add logs toggle status
     logs_status = " | Logs: ON" if state.show_logs else ""
     if logs_status:
         help_text += logs_status
-    
-    stdscr.addstr(help_y, 2, help_text[:w-4], curses.color_pair(5))
+
+    stdscr.addstr(help_y, 2, help_text[: w - 4], curses.color_pair(5))
 
 
 def set_error(state: UIState, message: str) -> None:
@@ -362,8 +362,9 @@ def main(stdscr) -> None:
 
     state = UIState()
 
-    # Initialize with last used tag
     all_snapshots = core.list_snapshots()
+
+    # Initialize with last used tag
     if state.selected_tag and all_snapshots:
         tagged_snapshots = state.get_filtered_snapshots(all_snapshots)
         if not tagged_snapshots:
@@ -389,6 +390,7 @@ def main(stdscr) -> None:
                 state.selected_tag = latest_tag
 
     while True:
+        all_snapshots = core.list_snapshots()
         draw(stdscr, state)
         key = stdscr.getch()
 
@@ -438,7 +440,7 @@ def main(stdscr) -> None:
                 ):
                     tag_list = [t.strip() for t in tags if t.strip()]
                     result, message = core.save(tag_list, note)
-                    
+
                     if result:
                         # Update last tag if tags were provided
                         if tag_list:
