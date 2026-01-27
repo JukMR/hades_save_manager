@@ -90,7 +90,7 @@ def _get_controller_for_pane(stdscr: Any, state: UIState, key: int) -> Any:
     """Get appropriate controller based on active pane."""
     # Navigation controller handles keys that work in any pane
     nav_controller = NavigationController(stdscr, state)
-    if key in (9, curses.KEY_LEFT, curses.KEY_RIGHT, ord("l"), ord("q")):
+    if key in (9, curses.KEY_LEFT, curses.KEY_RIGHT, ord("q")):
         return nav_controller
 
     # Pane-specific controllers

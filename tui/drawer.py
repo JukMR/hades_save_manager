@@ -5,7 +5,7 @@ from typing import Any
 import curses
 import core
 from .colors import ColorPairs
-from .panes import LogPane, MetadataPane, SnapshotPane, TagsPane
+from .panes import MetadataPane, SnapshotPane, TagsPane
 
 
 class TUIDrawer:
@@ -15,7 +15,7 @@ class TUIDrawer:
         self.snapshot_pane = None
         self.metadata_pane = None
         self.tags_pane = None
-        self.log_pane = None
+
     
     def draw(self, stdscr: Any, state: Any) -> None:
         """Draw the entire TUI interface."""
@@ -53,15 +53,18 @@ class TUIDrawer:
         # Draw help/status bar
         self.draw_help_bar(stdscr, h, w, state)
         
-        # Draw logs if enabled
-        if state.show_logs and self.log_pane:
-            # Calculate log pane position and size
-            snapshots_w = w // 3
-            metadata_w = w // 3
-            tags_w = w - snapshots_w - metadata_w - 4
-            offset_x = snapshots_w + metadata_w + 4
-            
-            self.log_pane.draw(stdscr, offset_x, state, state.show_logs)
+        # Draw status message (error/success)
+        self.draw_status_message(stdscr, h, w, state)
+
+    def draw_status_message(self, stdscr: Any, h: int, w: int, state: Any) -> None:
+        """Draw error or success message."""
+        if state.error_message and state.error_timer > 0:
+            color = ColorPairs.RED
+            msg_lower = state.error_message.lower()
+            if any(word in msg_lower for word in ["success", "created", "restored", "renamed", "merged", "deleted"]):
+                color = ColorPairs.GREEN
+                
+            stdscr.addstr(h - 1, 2, state.error_message[: w - 4], curses.color_pair(color) | curses.A_BOLD)
 
     def draw_pane_headers(
         self, 
@@ -115,16 +118,16 @@ class TUIDrawer:
         self.snapshot_pane = SnapshotPane(snapshots_w - 2, pane_height)
         self.metadata_pane = MetadataPane(metadata_w - 2, pane_height)
         self.tags_pane = TagsPane(tags_w - 2, pane_height)
-        self.log_pane = LogPane(tags_w - 2, pane_height)
+
 
     def draw_help_bar(self, stdscr: Any, h: int, w: int, state: Any) -> None:
         """Draw help/status bar."""
-        help_y = h - 2 if not state.show_logs else h - 3
+        help_y = h - 2
         
         help_texts = {
-            0: "[↑↓] move  [Tab] switch pane  [Enter] select  [s] save  [r] restore  [d] delete  [l] toggle logs  [q] quit",
-            1: "[Tab] switch pane  [l] toggle logs  [q] quit",
-            2: "[↑↓] move  [Tab] switch pane  [Enter] filter  [n] new  [R] rename  [D] delete  [m] merge  [l] toggle logs  [q] quit",
+            0: "[↑↓] move  [Tab] switch pane  [Enter/r] restore  [s] save  [d] delete  [q] quit",
+            1: "[Tab] switch pane  [q] quit",
+            2: "[↑↓] move  [Tab] switch pane  [Enter] filter  [n] new  [R] rename  [D] delete  [m] merge  [q] quit",
         }
 
         help_text = help_texts.get(state.active_pane, help_texts[0])
@@ -140,9 +143,6 @@ class TUIDrawer:
             if len(help_text) + len(filter_info) < w - 2:
                 help_text += filter_info
 
-        # Add logs toggle status
-        logs_status = " | Logs: ON" if state.show_logs else ""
-        if logs_status:
-            help_text += logs_status
+
 
         return help_text

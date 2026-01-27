@@ -34,9 +34,7 @@ class NavigationController(BaseController):
         elif key in (curses.KEY_LEFT, curses.KEY_RIGHT) and self.state.active_pane != 1:
             self._arrow_navigation(key)
             return True
-        elif key == ord("l"):  # Toggle logs
-            self.state.show_logs = not self.state.show_logs
-            return True
+
         elif key == ord("q"):  # Quit
             return False  # Signal to quit
         return super().handle_input(key)
@@ -78,6 +76,9 @@ class SnapshotController(BaseController):
             self._handle_save()
             return True
         elif key == ord("r") and filtered_snapshots:
+            self._handle_restore(filtered_snapshots)
+            return True
+        elif key in (10, 13) and filtered_snapshots:  # Enter - restore snapshot
             self._handle_restore(filtered_snapshots)
             return True
         elif key == ord("d") and filtered_snapshots:

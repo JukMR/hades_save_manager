@@ -19,7 +19,7 @@ class UIState:
         self.tag_input = ""
         self.error_message = ""
         self.error_timer = 0
-        self.show_logs = False  # Toggle log visibility
+
 
     def get_filtered_snapshots(self, all_snapshots: List[core.Path]) -> List[core.Path]:
         """Get snapshots filtered by selected tag.
