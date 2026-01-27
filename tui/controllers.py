@@ -18,9 +18,9 @@ class BaseController:
         """Handle input key. Override in subclasses.
         
         Returns:
-            True if input was handled, False otherwise
+            True if application should continue, False if it should quit
         """
-        return False
+        return True
 
 
 class NavigationController(BaseController):
