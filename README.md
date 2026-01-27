@@ -76,12 +76,11 @@ python3 -m cli.cli       # CLI
 **Global Controls:**
 - **[↑↓]** Navigate within active pane
 - **[Tab]** Switch between panes (Snapshots ↔ Tags, skips Metadata)
-- **[l]** Toggle logs display on/off
 - **[q]** Quit application
 
 **Snapshots Pane:**
 - **[s]** Save new snapshot (prompts for note)
-- **[r]** Restore selected snapshot
+- **[Enter/r]** Restore selected snapshot
 - **[d]** Delete selected snapshot
 
 **Tags Pane:**

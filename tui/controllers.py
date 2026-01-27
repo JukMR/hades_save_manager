@@ -151,7 +151,7 @@ class TagController(BaseController):
         elif key == ord("D") and tags:
             self._handle_delete_tag(tags)
             return True
-        elif key == ord("m") and tags:
+        elif key == ord("m") and len(tags) > 1:
             self._handle_merge_tags(tags)
             return True
         
@@ -178,39 +178,43 @@ class TagController(BaseController):
 
     def _handle_rename_tag(self, tags: list) -> None:
         """Handle tag renaming."""
-        if self.state.tag_idx < len(tags):
+        if self.state.tag_idx > 0 and self.state.tag_idx <= len(tags):
+            actual_tag_idx = self.state.tag_idx - 1  # Account for "+ New tag" at index 0
             self.state.renaming_tag = True
-            self.state.tag_input = tags[self.state.tag_idx]
+            self.state.tag_input = tags[actual_tag_idx]
             curses.curs_set(1)
 
     def _handle_delete_tag(self, tags: list) -> None:
         """Handle tag deletion."""
-        tag = tags[self.state.tag_idx]
-        if confirm(self.stdscr, "Delete tag", f"Delete tag '{tag}'? This will remove it from all snapshots."):
-            result, message = core.delete_tag(tag)
-            if result:
-                if self.state.selected_tag == tag:
-                    self.state.selected_tag = None
-                    core.set_last_tag("")
-                self.state.tag_idx = max(0, self.state.tag_idx - 1)
-                self.state.set_success(message)
-            else:
-                self.state.set_error(message)
+        if self.state.tag_idx > 0 and self.state.tag_idx <= len(tags):
+            actual_tag_idx = self.state.tag_idx - 1  # Account for "+ New tag" at index 0
+            tag = tags[actual_tag_idx]
+            if confirm(self.stdscr, "Delete tag", f"Delete tag '{tag}'? This will remove it from all snapshots."):
+                result, message = core.delete_tag(tag)
+                if result:
+                    if self.state.selected_tag == tag:
+                        self.state.selected_tag = None
+                        core.set_last_tag("")
+                    self.state.tag_idx = max(1, self.state.tag_idx - 1)  # Don't go below index 1 (New tag)
+                    self.state.set_success(message)
+                else:
+                    self.state.set_error(message)
 
     def _handle_merge_tags(self, tags: list) -> None:
         """Handle tag merging."""
-        if len(tags) > 1:
-            source_tag = tags[self.state.tag_idx]
-            target_idx = (self.state.tag_idx + 1) % len(tags)
+        if self.state.tag_idx > 0 and len(tags) > 1:
+            actual_tag_idx = self.state.tag_idx - 1  # Account for "+ New tag" at index 0
+            source_tag = tags[actual_tag_idx]
+            target_idx = (actual_tag_idx + 1) % len(tags)
             target_tag = tags[target_idx]
-
+            
             if confirm(self.stdscr, "Merge tags", f"Merge '{source_tag}' into '{target_tag}'?"):
                 result, message = core.merge_tags(source_tag, target_tag)
                 if result:
                     if self.state.selected_tag == source_tag:
                         self.state.selected_tag = target_tag
                         core.set_last_tag(target_tag)
-                    self.state.tag_idx = target_idx
+                    self.state.tag_idx = target_idx + 1  # Convert back to display index (+ New tag)
                     self.state.set_success(message)
                 else:
                     self.state.set_error(message)

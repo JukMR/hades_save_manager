@@ -38,13 +38,9 @@ def main(stdscr: Any) -> None:
 
         # Handle regular input based on active pane
         controller = _get_controller_for_pane(stdscr, state, key)
-        if controller:
-            result = controller.handle_input(key)
-            if result is False:  # Quit signal
-                break
-        else:
-            # Unhandled key, continue
-            continue
+        result = controller.handle_input(key) if controller else True
+        if result is False:  # Quit signal
+            break
 
         # Decrease error message timer
         if state.error_timer > 0:
