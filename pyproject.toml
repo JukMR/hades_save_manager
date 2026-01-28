@@ -1,0 +1,51 @@
+[project]
+name = "hades-save-manager"
+version = "1.0.0"
+description = "Hades save backup and restore tool"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pytest-cov>=7.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["core", "cli", "tui"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "coverage>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["tests/test_*.py"]
+python_classes = ["Test*"]
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+[tool.coverage.run]
+source = ["core", "cli", "tui"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/env/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]
