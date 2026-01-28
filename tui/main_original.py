@@ -120,7 +120,9 @@ def draw(stdscr, state: UIState) -> None:
 
     # Ensure indexes are valid
     if filtered_snapshots:
-        state.snapshot_idx = max(0, min(state.snapshot_idx, len(filtered_snapshots) - 1))
+        state.snapshot_idx = max(
+            0, min(state.snapshot_idx, len(filtered_snapshots) - 1)
+        )
     else:
         state.snapshot_idx = 0
 
@@ -140,7 +142,9 @@ def draw(stdscr, state: UIState) -> None:
     stdscr.refresh()
 
 
-def draw_pane_headers(stdscr, snapshots_w: int, metadata_w: int, tags_w: int, active_pane: int) -> None:
+def draw_pane_headers(
+    stdscr, snapshots_w: int, metadata_w: int, tags_w: int, active_pane: int
+) -> None:
     """Draw pane headers with active pane highlighting"""
     # Determine header colors
     colors = [
@@ -166,13 +170,20 @@ def draw_pane_headers(stdscr, snapshots_w: int, metadata_w: int, tags_w: int, ac
         stdscr.addch(y, snapshots_w + metadata_w + 2, ord(vline))
 
 
-def draw_snapshots_pane(stdscr, snapshots: List[core.Path], state: UIState, pane_w: int, h: int) -> None:
+def draw_snapshots_pane(
+    stdscr, snapshots: List[core.Path], state: UIState, pane_w: int, h: int
+) -> None:
     """Draw the snapshots list pane"""
     max_y = h - 3  # Leave space for header and help
 
     if not snapshots:
         if state.selected_tag:
-            stdscr.addstr(2, 2, f"No snapshots with tag '{state.selected_tag}'", curses.color_pair(4))
+            stdscr.addstr(
+                2,
+                2,
+                f"No snapshots with tag '{state.selected_tag}'",
+                curses.color_pair(4),
+            )
         else:
             stdscr.addstr(2, 2, "No snapshots available", curses.color_pair(4))
         return
@@ -191,7 +202,14 @@ def draw_snapshots_pane(stdscr, snapshots: List[core.Path], state: UIState, pane
             stdscr.addstr(y, 2, snap.name[: pane_w - 4])
 
 
-def draw_metadata_pane(stdscr, snapshots: List[core.Path], state: UIState, offset_x: int, pane_w: int, h: int) -> None:
+def draw_metadata_pane(
+    stdscr,
+    snapshots: List[core.Path],
+    state: UIState,
+    offset_x: int,
+    pane_w: int,
+    h: int,
+) -> None:
     """Draw the metadata pane"""
     if not snapshots:
         stdscr.addstr(2, offset_x + 2, "No snapshots available", curses.color_pair(4))
@@ -223,7 +241,9 @@ def draw_metadata_pane(stdscr, snapshots: List[core.Path], state: UIState, offse
             y += 1
 
 
-def draw_tags_pane(stdscr, tags: List[str], state: UIState, offset_x: int, pane_w: int, h: int) -> None:
+def draw_tags_pane(
+    stdscr, tags: List[str], state: UIState, offset_x: int, pane_w: int, h: int
+) -> None:
     """Draw the tags management pane"""
     max_y = h - 3
 
@@ -234,7 +254,9 @@ def draw_tags_pane(stdscr, tags: List[str], state: UIState, offset_x: int, pane_
 
     if not tags:
         stdscr.addstr(2, offset_x + 2, "No tags available", curses.color_pair(4))
-        stdscr.addstr(4, offset_x + 2, "Press [n] to create a tag", curses.color_pair(5))
+        stdscr.addstr(
+            4, offset_x + 2, "Press [n] to create a tag", curses.color_pair(5)
+        )
         return
 
     display_tags = ["+ New tag"] + tags
@@ -281,7 +303,9 @@ def draw_tag_input(stdscr, state: UIState, offset_x: int, pane_w: int) -> None:
     stdscr.addstr(2, offset_x + 2, prompt, curses.A_BOLD)
     input_field = state.tag_input + "_"
     stdscr.addstr(3, offset_x + 2, input_field.ljust(pane_w - 4), curses.color_pair(2))
-    stdscr.addstr(5, offset_x + 2, "[Enter] confirm  [Esc] cancel", curses.color_pair(5))
+    stdscr.addstr(
+        5, offset_x + 2, "[Enter] confirm  [Esc] cancel", curses.color_pair(5)
+    )
 
 
 def draw_logs(stdscr, state: UIState, offset_x: int, width: int, h: int) -> None:
@@ -294,9 +318,16 @@ def draw_logs(stdscr, state: UIState, offset_x: int, width: int, h: int) -> None
 
     # Draw log border and header
     log_h = min(len(logs) + 2, h - 4)
-    stdscr.addstr(h - log_h - 1, offset_x, "┌" + "─" * (width - 2) + "┐", curses.color_pair(1))
+    stdscr.addstr(
+        h - log_h - 1, offset_x, "┌" + "─" * (width - 2) + "┐", curses.color_pair(1)
+    )
     stdscr.addstr(h - log_h, offset_x, "│ Logs ", curses.color_pair(1) | curses.A_BOLD)
-    stdscr.addstr(h - log_h, offset_x + len("│ Logs "), " " * (width - len("│ Logs ") - 1) + "│", curses.color_pair(1))
+    stdscr.addstr(
+        h - log_h,
+        offset_x + len("│ Logs "),
+        " " * (width - len("│ Logs ") - 1) + "│",
+        curses.color_pair(1),
+    )
 
     # Draw log entries
     for i, log_line in enumerate(logs):
@@ -496,7 +527,9 @@ def main(stdscr) -> None:
                 state.snapshot_idx = max(0, state.snapshot_idx - 1)
 
             elif key == curses.KEY_DOWN and filtered_snapshots:
-                state.snapshot_idx = min(len(filtered_snapshots) - 1, state.snapshot_idx + 1)
+                state.snapshot_idx = min(
+                    len(filtered_snapshots) - 1, state.snapshot_idx + 1
+                )
 
             elif key == ord("q"):
                 break
@@ -646,12 +679,18 @@ def main(stdscr) -> None:
                         tag_file = core.TAGS_DIR / f"{state.tag_input.strip()}.json"
                         if not tag_file.exists():
                             tag_file.write_text("[]")
-                            set_success(state, f"Created tag '{state.tag_input.strip()}'")
+                            set_success(
+                                state, f"Created tag '{state.tag_input.strip()}'"
+                            )
                         else:
-                            set_error(state, f"Tag '{state.tag_input.strip()}' already exists")
+                            set_error(
+                                state, f"Tag '{state.tag_input.strip()}' already exists"
+                            )
                     elif state.renaming_tag and state.tag_idx < len(core.list_tags()):
                         old_tag = core.list_tags()[state.tag_idx]
-                        result, message = core.rename_tag(old_tag, state.tag_input.strip())
+                        result, message = core.rename_tag(
+                            old_tag, state.tag_input.strip()
+                        )
                         if result:
                             if state.selected_tag == old_tag:
                                 state.selected_tag = state.tag_input.strip()

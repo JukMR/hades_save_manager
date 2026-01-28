@@ -9,14 +9,14 @@ from .ui_helpers import confirm, prompt
 
 class BaseController:
     """Base controller for input handling."""
-    
+
     def __init__(self, stdscr: Any, state: Any) -> None:
         self.stdscr = stdscr
         self.state = state
-    
+
     def handle_input(self, key: int) -> bool:
         """Handle input key. Override in subclasses.
-        
+
         Returns:
             True if application should continue, False if it should quit
         """
@@ -25,7 +25,7 @@ class BaseController:
 
 class NavigationController(BaseController):
     """Controller for navigation between panes."""
-    
+
     def handle_input(self, key: int) -> bool:
         """Handle navigation keys."""
         if key == 9:  # Tab
@@ -60,17 +60,19 @@ class NavigationController(BaseController):
 
 class SnapshotController(BaseController):
     """Controller for snapshots pane operations."""
-    
+
     def handle_input(self, key: int) -> bool:
         """Handle snapshot-related input."""
         all_snapshots = core.list_snapshots()
         filtered_snapshots = self.state.get_filtered_snapshots(all_snapshots)
-        
+
         if key == curses.KEY_UP and filtered_snapshots:
             self.state.snapshot_idx = max(0, self.state.snapshot_idx - 1)
             return True
         elif key == curses.KEY_DOWN and filtered_snapshots:
-            self.state.snapshot_idx = min(len(filtered_snapshots) - 1, self.state.snapshot_idx + 1)
+            self.state.snapshot_idx = min(
+                len(filtered_snapshots) - 1, self.state.snapshot_idx + 1
+            )
             return True
         elif key == ord("s"):
             self._handle_save()
@@ -84,7 +86,7 @@ class SnapshotController(BaseController):
         elif key == ord("d") and filtered_snapshots:
             self._handle_delete(filtered_snapshots)
             return True
-        
+
         return super().handle_input(key)
 
     def _handle_save(self) -> None:
@@ -107,7 +109,11 @@ class SnapshotController(BaseController):
     def _handle_restore(self, filtered_snapshots: list) -> None:
         """Handle restore operation."""
         snap = filtered_snapshots[self.state.snapshot_idx]
-        if confirm(self.stdscr, "Restore snapshot", f"Restore {snap.name}? Current save will be replaced."):
+        if confirm(
+            self.stdscr,
+            "Restore snapshot",
+            f"Restore {snap.name}? Current save will be replaced.",
+        ):
             result, message = core.restore(snap)
             if result:
                 self.state.set_success(message)
@@ -117,7 +123,9 @@ class SnapshotController(BaseController):
     def _handle_delete(self, filtered_snapshots: list) -> None:
         """Handle delete operation."""
         snap = filtered_snapshots[self.state.snapshot_idx]
-        if confirm(self.stdscr, "Delete snapshot", f"Delete {snap.name}? This is permanent."):
+        if confirm(
+            self.stdscr, "Delete snapshot", f"Delete {snap.name}? This is permanent."
+        ):
             result, message = core.delete_snapshot(snap)
             if result:
                 self.state.snapshot_idx = max(0, self.state.snapshot_idx - 1)
@@ -128,11 +136,11 @@ class SnapshotController(BaseController):
 
 class TagController(BaseController):
     """Controller for tags pane operations."""
-    
+
     def handle_input(self, key: int) -> bool:
         """Handle tag-related input."""
         tags = core.list_tags()
-        
+
         if key == curses.KEY_UP:
             self.state.tag_idx = max(0, self.state.tag_idx - 1)
             return True
@@ -154,7 +162,7 @@ class TagController(BaseController):
         elif key == ord("m") and len(tags) > 1:
             self._handle_merge_tags(tags)
             return True
-        
+
         return super().handle_input(key)
 
     def _handle_enter(self, tags: list) -> None:
@@ -179,7 +187,9 @@ class TagController(BaseController):
     def _handle_rename_tag(self, tags: list) -> None:
         """Handle tag renaming."""
         if self.state.tag_idx > 0 and self.state.tag_idx <= len(tags):
-            actual_tag_idx = self.state.tag_idx - 1  # Account for "+ New tag" at index 0
+            actual_tag_idx = (
+                self.state.tag_idx - 1
+            )  # Account for "+ New tag" at index 0
             self.state.renaming_tag = True
             self.state.tag_input = tags[actual_tag_idx]
             curses.curs_set(1)
@@ -187,15 +197,23 @@ class TagController(BaseController):
     def _handle_delete_tag(self, tags: list) -> None:
         """Handle tag deletion."""
         if self.state.tag_idx > 0 and self.state.tag_idx <= len(tags):
-            actual_tag_idx = self.state.tag_idx - 1  # Account for "+ New tag" at index 0
+            actual_tag_idx = (
+                self.state.tag_idx - 1
+            )  # Account for "+ New tag" at index 0
             tag = tags[actual_tag_idx]
-            if confirm(self.stdscr, "Delete tag", f"Delete tag '{tag}'? This will remove it from all snapshots."):
+            if confirm(
+                self.stdscr,
+                "Delete tag",
+                f"Delete tag '{tag}'? This will remove it from all snapshots.",
+            ):
                 result, message = core.delete_tag(tag)
                 if result:
                     if self.state.selected_tag == tag:
                         self.state.selected_tag = None
                         core.set_last_tag("")
-                    self.state.tag_idx = max(1, self.state.tag_idx - 1)  # Don't go below index 1 (New tag)
+                    self.state.tag_idx = max(
+                        1, self.state.tag_idx - 1
+                    )  # Don't go below index 1 (New tag)
                     self.state.set_success(message)
                 else:
                     self.state.set_error(message)
@@ -203,18 +221,24 @@ class TagController(BaseController):
     def _handle_merge_tags(self, tags: list) -> None:
         """Handle tag merging."""
         if self.state.tag_idx > 0 and len(tags) > 1:
-            actual_tag_idx = self.state.tag_idx - 1  # Account for "+ New tag" at index 0
+            actual_tag_idx = (
+                self.state.tag_idx - 1
+            )  # Account for "+ New tag" at index 0
             source_tag = tags[actual_tag_idx]
             target_idx = (actual_tag_idx + 1) % len(tags)
             target_tag = tags[target_idx]
-            
-            if confirm(self.stdscr, "Merge tags", f"Merge '{source_tag}' into '{target_tag}'?"):
+
+            if confirm(
+                self.stdscr, "Merge tags", f"Merge '{source_tag}' into '{target_tag}'?"
+            ):
                 result, message = core.merge_tags(source_tag, target_tag)
                 if result:
                     if self.state.selected_tag == source_tag:
                         self.state.selected_tag = target_tag
                         core.set_last_tag(target_tag)
-                    self.state.tag_idx = target_idx + 1  # Convert back to display index (+ New tag)
+                    self.state.tag_idx = (
+                        target_idx + 1
+                    )  # Convert back to display index (+ New tag)
                     self.state.set_success(message)
                 else:
                     self.state.set_error(message)
@@ -222,7 +246,7 @@ class TagController(BaseController):
 
 class TagInputController(BaseController):
     """Controller for tag input modes (creation/renaming)."""
-    
+
     def handle_input(self, key: int) -> bool:
         """Handle tag input keys."""
         if key in (27,):  # Esc
@@ -237,7 +261,7 @@ class TagInputController(BaseController):
         elif 32 <= key <= 126:  # Printable characters
             self.state.tag_input += chr(key)
             return True
-        
+
         return super().handle_input(key)
 
     def _cancel_input(self) -> None:
@@ -264,7 +288,7 @@ class TagInputController(BaseController):
     def _create_tag(self, name: str) -> None:
         """Create a new tag."""
         import core
-        
+
         core.TAGS_DIR.mkdir(parents=True, exist_ok=True)
         tag_file = core.TAGS_DIR / f"{name}.json"
 

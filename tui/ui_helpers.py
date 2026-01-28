@@ -6,17 +6,17 @@ from typing import Any
 
 def prompt(stdscr: Any, y: int, msg: str) -> str:
     """Display a prompt and get user input.
-    
+
     Args:
         stdscr: The curses screen object
         y: Y coordinate for the prompt
         msg: Prompt message to display
-        
+
     Returns:
         User input string
     """
     from .colors import ColorPairs
-    
+
     curses.echo()
     stdscr.addstr(y, 2, msg, curses.color_pair(ColorPairs.YELLOW))
     stdscr.clrtoeol()
@@ -27,17 +27,17 @@ def prompt(stdscr: Any, y: int, msg: str) -> str:
 
 def confirm(stdscr: Any, title: str, msg: str) -> bool:
     """Display a confirmation dialog.
-    
+
     Args:
         stdscr: The curses screen object
         title: Dialog title
         msg: Confirmation message
-        
+
     Returns:
         True if user confirms, False otherwise
     """
     from .colors import ColorPairs
-    
+
     h, w = stdscr.getmaxyx()
     win_h, win_w = 7, max(len(msg) + 6, 44)
 

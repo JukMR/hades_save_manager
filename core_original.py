@@ -62,7 +62,9 @@ class Logger:
     def get_recent_logs(self, count: int = 10) -> List[str]:
         """Get recent log entries as formatted strings"""
         recent = self.logs[-count:] if self.logs else []
-        return [f"[{ts.strftime('%H:%M:%S')}] {level}: {msg}" for ts, level, msg in recent]
+        return [
+            f"[{ts.strftime('%H:%M:%S')}] {level}: {msg}" for ts, level, msg in recent
+        ]
 
     def clear(self) -> None:
         """Clear all logs"""

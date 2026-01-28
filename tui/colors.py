@@ -5,17 +5,17 @@ import curses
 
 class ColorPairs:
     """Color pair definitions for the TUI."""
-    
+
     # Color pair constants
-    CYAN = 1           # headers
-    SELECTED = 2       # selected row (black on cyan)
-    YELLOW = 3         # metadata
-    RED = 4            # warnings
-    GREEN = 5          # hints / actions
-    ACTIVE_PANE = 6    # active pane border (black on white)
-    MAGENTA = 7        # tags
-    ACTIVE_TAG = 8     # active tag (white on blue)
-    LOG = 9            # log messages
+    CYAN = 1  # headers
+    SELECTED = 2  # selected row (black on cyan)
+    YELLOW = 3  # metadata
+    RED = 4  # warnings
+    GREEN = 5  # hints / actions
+    ACTIVE_PANE = 6  # active pane border (black on white)
+    MAGENTA = 7  # tags
+    ACTIVE_TAG = 8  # active tag (white on blue)
+    LOG = 9  # log messages
 
 
 def init_colors() -> None:
@@ -36,10 +36,10 @@ def init_colors() -> None:
 
 def get_log_color(log_line: str) -> int:
     """Get color for a log line based on its content.
-    
+
     Args:
         log_line: The log line to color
-        
+
     Returns:
         Color pair constant for the log line
     """

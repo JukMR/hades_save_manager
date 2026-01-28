@@ -45,7 +45,9 @@ class Logger:
     def get_recent_logs(self, count: int = 10) -> List[str]:
         """Get recent log entries as formatted strings."""
         recent = self.logs[-count:] if self.logs else []
-        return [f"[{ts.strftime('%H:%M:%S')}] {level}: {msg}" for ts, level, msg in recent]
+        return [
+            f"[{ts.strftime('%H:%M:%S')}] {level}: {msg}" for ts, level, msg in recent
+        ]
 
     def clear(self) -> None:
         """Clear all logs."""
@@ -55,7 +57,7 @@ class Logger:
         """Write log entry to file."""
         try:
             from .constants import BACKUP_SAVE_ROOT
-            
+
             BACKUP_SAVE_ROOT.mkdir(parents=True, exist_ok=True)
             log_line = f"{timestamp.isoformat()} {level}: {message}\n"
             with LOG_FILE.open("a", encoding="utf-8") as f:

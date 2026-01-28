@@ -1,7 +1,6 @@
 """Simple working tests for tag manager."""
 
 
-
 def test_add_tag_simple(patched_constants):
     """Test adding tags to snapshots."""
     root, tags, game_dir = patched_constants

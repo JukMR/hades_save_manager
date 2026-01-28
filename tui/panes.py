@@ -9,11 +9,11 @@ from .colors import ColorPairs
 
 class BasePane:
     """Base class for all UI panes."""
-    
+
     def __init__(self, width: int, height: int) -> None:
         self.width = width
         self.height = height
-    
+
     def draw(self, stdscr: Any, offset_x: int, state: Any, *args, **kwargs) -> None:
         """Draw the pane. Override in subclasses."""
         pass
@@ -21,8 +21,14 @@ class BasePane:
 
 class SnapshotPane(BasePane):
     """Pane for displaying and navigating snapshots."""
-    
-    def draw(self, stdscr: Any, offset_x: int, state: Any, snapshots: List[core.Path] | None = None) -> None:
+
+    def draw(
+        self,
+        stdscr: Any,
+        offset_x: int,
+        state: Any,
+        snapshots: List[core.Path] | None = None,
+    ) -> None:
         """Draw the snapshots list pane."""
         max_y = self.height - 3  # Leave space for header and help
 
@@ -36,24 +42,26 @@ class SnapshotPane(BasePane):
         """Draw empty state message."""
         if state.selected_tag:
             stdscr.addstr(
-                2, offset_x + 2, 
-                f"No snapshots with tag '{state.selected_tag}'", 
-                curses.color_pair(ColorPairs.RED)
+                2,
+                offset_x + 2,
+                f"No snapshots with tag '{state.selected_tag}'",
+                curses.color_pair(ColorPairs.RED),
             )
         else:
             stdscr.addstr(
-                2, offset_x + 2, 
-                "No snapshots available", 
-                curses.color_pair(ColorPairs.RED)
+                2,
+                offset_x + 2,
+                "No snapshots available",
+                curses.color_pair(ColorPairs.RED),
             )
 
     def _draw_snapshot_list(
-        self, 
-        stdscr: Any, 
-        offset_x: int, 
-        state: Any, 
-        snapshots: List[core.Path], 
-        max_y: int
+        self,
+        stdscr: Any,
+        offset_x: int,
+        state: Any,
+        snapshots: List[core.Path],
+        max_y: int,
     ) -> None:
         """Draw the list of snapshots."""
         for i, snap in enumerate(snapshots[:max_y]):
@@ -74,14 +82,17 @@ class SnapshotPane(BasePane):
 
 class MetadataPane(BasePane):
     """Pane for displaying snapshot metadata."""
-    
-    def draw(self, stdscr: Any, offset_x: int, state: Any, snapshots: List[core.Path]) -> None:
+
+    def draw(
+        self, stdscr: Any, offset_x: int, state: Any, snapshots: List[core.Path]
+    ) -> None:
         """Draw the metadata pane."""
         if not snapshots:
             stdscr.addstr(
-                2, offset_x + 2, 
-                "No snapshots available", 
-                curses.color_pair(ColorPairs.RED)
+                2,
+                offset_x + 2,
+                "No snapshots available",
+                curses.color_pair(ColorPairs.RED),
             )
             return
 
@@ -92,28 +103,27 @@ class MetadataPane(BasePane):
     def _draw_metadata_content(self, stdscr: Any, offset_x: int, meta: dict) -> None:
         """Draw the actual metadata content."""
         y = 2
-        
+
         # Created date
         stdscr.addstr(
-            y, offset_x + 2,
+            y,
+            offset_x + 2,
             f"Created: {meta.get('created_at', '')}",
-            curses.color_pair(ColorPairs.YELLOW)
+            curses.color_pair(ColorPairs.YELLOW),
         )
-        
+
         # Tags
         y += 2
-        tags_text = ', '.join(meta.get('tags', []))
+        tags_text = ", ".join(meta.get("tags", []))
         stdscr.addstr(
-            y, offset_x + 2,
-            f"Tags: {tags_text}",
-            curses.color_pair(ColorPairs.MAGENTA)
+            y, offset_x + 2, f"Tags: {tags_text}", curses.color_pair(ColorPairs.MAGENTA)
         )
-        
+
         # Note
         y += 2
         stdscr.addstr(y, offset_x + 2, "Note:", curses.A_BOLD)
         y += 1
-        
+
         note_lines = (meta.get("note") or "").splitlines()[: self.height - 7]
         for line in note_lines:
             if y < self.height - 2:
@@ -123,7 +133,7 @@ class MetadataPane(BasePane):
 
 class TagsPane(BasePane):
     """Pane for managing tags."""
-    
+
     def draw(self, stdscr: Any, offset_x: int, state: Any) -> None:
         """Draw the tags management pane."""
         max_y = self.height - 3
@@ -142,7 +152,7 @@ class TagsPane(BasePane):
 
     def _draw_tag_input(self, stdscr: Any, offset_x: int, state: Any) -> None:
         """Draw tag input field for creation/renaming."""
-        
+
         if state.creating_tag:
             prompt_text = "New tag: "
         else:
@@ -151,36 +161,32 @@ class TagsPane(BasePane):
         stdscr.addstr(2, offset_x + 2, prompt_text, curses.A_BOLD)
         input_field = state.tag_input + "_"
         stdscr.addstr(
-            3, offset_x + 2, 
-            input_field.ljust(self.width - 4), 
-            curses.color_pair(ColorPairs.SELECTED)
+            3,
+            offset_x + 2,
+            input_field.ljust(self.width - 4),
+            curses.color_pair(ColorPairs.SELECTED),
         )
         stdscr.addstr(
-            5, offset_x + 2, 
-            "[Enter] confirm  [Esc] cancel", 
-            curses.color_pair(ColorPairs.GREEN)
+            5,
+            offset_x + 2,
+            "[Enter] confirm  [Esc] cancel",
+            curses.color_pair(ColorPairs.GREEN),
         )
 
     def _draw_empty_tags_state(self, stdscr: Any, offset_x: int) -> None:
         """Draw empty tags state with hint."""
         stdscr.addstr(
-            2, offset_x + 2, 
-            "No tags available", 
-            curses.color_pair(ColorPairs.RED)
+            2, offset_x + 2, "No tags available", curses.color_pair(ColorPairs.RED)
         )
         stdscr.addstr(
-            4, offset_x + 2, 
-            "Press [n] to create a tag", 
-            curses.color_pair(ColorPairs.GREEN)
+            4,
+            offset_x + 2,
+            "Press [n] to create a tag",
+            curses.color_pair(ColorPairs.GREEN),
         )
 
     def _draw_tags_list(
-        self, 
-        stdscr: Any, 
-        offset_x: int, 
-        state: Any, 
-        tags: List[str], 
-        max_y: int
+        self, stdscr: Any, offset_x: int, state: Any, tags: List[str], max_y: int
     ) -> None:
         """Draw the list of tags."""
         display_tags = ["+ New tag"] + tags
@@ -194,7 +200,9 @@ class TagsPane(BasePane):
             else:
                 self._draw_tag_item(stdscr, offset_x, y, item, state, is_selected)
 
-    def _draw_new_tag_item(self, stdscr: Any, offset_x: int, y: int, is_selected: bool) -> None:
+    def _draw_new_tag_item(
+        self, stdscr: Any, offset_x: int, y: int, is_selected: bool
+    ) -> None:
         """Draw the 'New tag' virtual item."""
         attr = curses.color_pair(ColorPairs.GREEN)
         if is_selected:
@@ -202,20 +210,22 @@ class TagsPane(BasePane):
         stdscr.addstr(y, offset_x + 2, "+ New tag".ljust(self.width - 4), attr)
 
     def _draw_tag_item(
-        self, 
-        stdscr: Any, 
-        offset_x: int, 
-        y: int, 
-        tag: str, 
-        state: Any, 
-        is_selected: bool
+        self,
+        stdscr: Any,
+        offset_x: int,
+        y: int,
+        tag: str,
+        state: Any,
+        is_selected: bool,
     ) -> None:
         """Draw a real tag item."""
         count = core.get_tag_count(tag)
         is_active = tag == state.selected_tag
 
         if is_selected:
-            color = curses.color_pair(ColorPairs.ACTIVE_TAG if is_active else ColorPairs.SELECTED)
+            color = curses.color_pair(
+                ColorPairs.ACTIVE_TAG if is_active else ColorPairs.SELECTED
+            )
         elif is_active:
             color = curses.color_pair(ColorPairs.MAGENTA) | curses.A_REVERSE
         else:
@@ -223,4 +233,3 @@ class TagsPane(BasePane):
 
         text = f"{tag} ({count})".ljust(self.width - 4)
         stdscr.addstr(y, offset_x + 2, text, color)
-

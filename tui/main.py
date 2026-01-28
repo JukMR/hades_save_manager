@@ -6,7 +6,12 @@ from typing import Any
 import core
 
 from .colors import init_colors
-from .controllers import NavigationController, SnapshotController, TagController, TagInputController
+from .controllers import (
+    NavigationController,
+    SnapshotController,
+    TagController,
+    TagInputController,
+)
 from .drawer import TUIDrawer
 from .ui_state import UIState
 

@@ -8,7 +8,7 @@ from .constants import BACKUP_SAVE_ROOT, CONFIG_FILE
 
 def get_last_tag() -> Optional[str]:
     """Get the most recently used tag.
-    
+
     Returns:
         The last used tag name, or None if not found
     """
@@ -24,7 +24,7 @@ def get_last_tag() -> Optional[str]:
 
 def set_last_tag(tag: str) -> None:
     """Set the most recently used tag.
-    
+
     Args:
         tag: Tag name to save as last used
     """

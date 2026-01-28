@@ -59,7 +59,9 @@ def main() -> None:
         for snap in core.list_snapshots():
             if args.meta:
                 meta = core.read_meta(snap)
-                print(f"{snap.name} tags={meta.get('tags', [])} note={meta.get('note')}")
+                print(
+                    f"{snap.name} tags={meta.get('tags', [])} note={meta.get('note')}"
+                )
             else:
                 print(snap.name)
 

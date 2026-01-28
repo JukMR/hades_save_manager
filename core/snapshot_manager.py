@@ -14,7 +14,7 @@ from .tag_manager import add_tag
 
 def now_ts() -> str:
     """Generate current timestamp for snapshot naming.
-    
+
     Returns:
         Timestamp string in YYYY-MM-DDTHH-MM-SS format
     """
@@ -23,7 +23,7 @@ def now_ts() -> str:
 
 def assert_game_folder_exist() -> None:
     """Assert that the Hades save folder exists.
-    
+
     Raises:
         RuntimeError: If the Hades save directory doesn't exist
     """
@@ -33,7 +33,7 @@ def assert_game_folder_exist() -> None:
 
 def list_snapshots() -> List[Path]:
     """Get list of all snapshot directories.
-    
+
     Returns:
         Sorted list of snapshot paths (newest first)
     """
@@ -47,11 +47,11 @@ def list_snapshots() -> List[Path]:
 
 def save(tags: List[str], note: Optional[str]) -> Tuple[Optional[Path], str]:
     """Create a new snapshot.
-    
+
     Args:
         tags: List of tags to associate with the snapshot
         note: Optional note about the snapshot
-        
+
     Returns:
         Tuple of (snapshot_path, message)
     """
@@ -62,9 +62,10 @@ def save(tags: List[str], note: Optional[str]) -> Tuple[Optional[Path], str]:
         BACKUP_SAVE_ROOT.mkdir(parents=True, exist_ok=True)
 
         shutil.copytree(HADES_SAVE_DIR, dest)
-        
+
         # Import here to avoid circular imports
         from .metadata_handler import write_meta
+
         write_meta(dest, tags, note)
 
         for tag in tags:
@@ -83,10 +84,10 @@ def save(tags: List[str], note: Optional[str]) -> Tuple[Optional[Path], str]:
 
 def restore(snapshot: Path) -> Tuple[bool, str]:
     """Restore a snapshot.
-    
+
     Args:
         snapshot: Path to the snapshot to restore
-        
+
     Returns:
         Tuple of (success, message)
     """
@@ -112,17 +113,17 @@ def restore(snapshot: Path) -> Tuple[bool, str]:
 
 def restore_by_tag(tag: str) -> Tuple[bool, str]:
     """Restore latest snapshot with given tag.
-    
+
     Args:
         tag: Tag name to restore from
-        
+
     Returns:
         Tuple of (success, message)
     """
     try:
         # Import here to avoid circular imports
         from .tag_manager import snapshots_for_tag
-        
+
         matches = snapshots_for_tag(tag)
         if not matches:
             error_msg = f"No snapshots for tag '{tag}'"
@@ -139,10 +140,10 @@ def restore_by_tag(tag: str) -> Tuple[bool, str]:
 
 def delete_snapshot(snapshot: Path) -> Tuple[bool, str]:
     """Delete a snapshot and clean up tag references.
-    
+
     Args:
         snapshot: Path to the snapshot to delete
-        
+
     Returns:
         Tuple of (success, message)
     """

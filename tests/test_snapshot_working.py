@@ -1,7 +1,6 @@
 """Simple working tests for snapshot manager."""
 
 
-
 def test_save_simple(patched_constants):
     """Test snapshot creation with simple approach."""
     root, tags, game_dir = patched_constants

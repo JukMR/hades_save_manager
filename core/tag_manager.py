@@ -10,7 +10,7 @@ from .metadata_handler import read_meta, write_meta
 
 def add_tag(tag: str, snapshot_name: str) -> None:
     """Add a snapshot to a tag file.
-    
+
     Args:
         tag: Name of the tag
         snapshot_name: Name of the snapshot to add
@@ -28,10 +28,10 @@ def add_tag(tag: str, snapshot_name: str) -> None:
 
 def snapshots_for_tag(tag: str) -> List[str]:
     """Get all snapshots for a given tag.
-    
+
     Args:
         tag: Name of the tag
-        
+
     Returns:
         List of snapshot names, empty if tag doesn't exist
     """
@@ -43,7 +43,7 @@ def snapshots_for_tag(tag: str) -> List[str]:
 
 def list_tags() -> List[str]:
     """Get list of all available tags.
-    
+
     Returns:
         Sorted list of tag names
     """
@@ -54,10 +54,10 @@ def list_tags() -> List[str]:
 
 def get_tag_count(tag: str) -> int:
     """Get number of snapshots for a given tag.
-    
+
     Args:
         tag: Name of the tag
-        
+
     Returns:
         Number of snapshots with this tag
     """
@@ -66,11 +66,11 @@ def get_tag_count(tag: str) -> int:
 
 def rename_tag(old_tag: str, new_tag: str) -> Tuple[bool, str]:
     """Rename a tag.
-    
+
     Args:
         old_tag: Current tag name
         new_tag: New tag name
-        
+
     Returns:
         Tuple of (success, message)
     """
@@ -114,10 +114,10 @@ def rename_tag(old_tag: str, new_tag: str) -> Tuple[bool, str]:
 
 def delete_tag(tag: str) -> Tuple[bool, str]:
     """Delete a tag completely.
-    
+
     Args:
         tag: Name of the tag to delete
-        
+
     Returns:
         Tuple of (success, message)
     """
@@ -131,9 +131,7 @@ def delete_tag(tag: str) -> Tuple[bool, str]:
     try:
         # Remove tag from metadata in all snapshots
         snapshots = snapshots_for_tag(tag)
-        updated_count = _update_metadata_tag_references(
-            snapshots, tag, None, "delete"
-        )
+        updated_count = _update_metadata_tag_references(snapshots, tag, None, "delete")
 
         # Delete tag file
         tag_file.unlink()
@@ -149,11 +147,11 @@ def delete_tag(tag: str) -> Tuple[bool, str]:
 
 def merge_tags(source_tag: str, target_tag: str) -> Tuple[bool, str]:
     """Merge source_tag into target_tag.
-    
+
     Args:
         source_tag: Tag to merge from
         target_tag: Tag to merge into
-        
+
     Returns:
         Tuple of (success, message)
     """
@@ -210,19 +208,16 @@ def merge_tags(source_tag: str, target_tag: str) -> Tuple[bool, str]:
 
 
 def _update_metadata_tag_references(
-    snapshots: List[str], 
-    old_tag: str, 
-    new_tag: str | None, 
-    operation: str
+    snapshots: List[str], old_tag: str, new_tag: str | None, operation: str
 ) -> int:
     """Update tag references in snapshot metadata.
-    
+
     Args:
         snapshots: List of snapshot names to update
         old_tag: Tag to replace/remove
         new_tag: New tag to add (None for delete operation)
         operation: Type of operation ("rename" or "delete")
-        
+
     Returns:
         Number of snapshots updated
     """
@@ -232,15 +227,15 @@ def _update_metadata_tag_references(
         if snapshot_path.exists():
             meta = read_meta(snapshot_path)
             tags = meta.get("tags", [])
-            
+
             if old_tag in tags:
                 tags.remove(old_tag)
-                
+
                 if operation == "rename" and new_tag:
                     tags.append(new_tag)
-                    
+
                 meta["tags"] = sorted(set(tags))
                 write_meta(snapshot_path, meta["tags"], meta.get("note"))
                 updated_count += 1
-                
+
     return updated_count

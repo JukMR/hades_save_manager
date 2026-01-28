@@ -1,7 +1,6 @@
 """Simple integration tests with proper timing."""
 
 
-
 def test_basic_workflow(patched_constants):
     """Test basic workflow: save -> list."""
     root, tags, game_dir = patched_constants

@@ -15,6 +15,7 @@ sys.path.insert(0, str(project_root))
 from tui.main import main
 import curses
 
+
 def run_tui():
     """Run the TUI application."""
     try:
@@ -24,6 +25,7 @@ def run_tui():
     except Exception as e:
         print(f"TUI Error: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     run_tui()

@@ -7,7 +7,7 @@ from typing import Any, Dict, Iterable, Optional
 
 def write_meta(snapshot: Path, tags: Iterable[str], note: Optional[str]) -> None:
     """Write metadata for a snapshot.
-    
+
     Args:
         snapshot: Path to the snapshot directory
         tags: Iterable of tag names
@@ -23,10 +23,10 @@ def write_meta(snapshot: Path, tags: Iterable[str], note: Optional[str]) -> None
 
 def read_meta(snapshot: Path) -> Dict[str, Any]:
     """Read metadata for a snapshot.
-    
+
     Args:
         snapshot: Path to the snapshot directory
-        
+
     Returns:
         Dictionary containing metadata, empty if no metadata exists
     """
