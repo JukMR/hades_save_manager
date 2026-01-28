@@ -222,10 +222,37 @@ def list_snapshots() -> List[Path]:
 ## Testing Requirements
 
 ### Required Testing Before Merging
-1. **Import testing:**
+1. **UV dependency management:**
    ```bash
-   python3 -c "import core; import cli.cli; import tui.main; print('✅ All imports work')"
+   uv sync --dev  # Install development dependencies
    ```
+
+2. **Run all tests:**
+   ```bash
+   uv run pytest tests/ -v
+   ```
+
+3. **Run specific test files:**
+   ```bash
+   uv run pytest tests/test_snapshot_working.py -v
+   ```
+
+4. **Coverage check:**
+   ```bash
+   uv run pytest tests/ --cov=core --cov-report=term-missing
+   ```
+
+5. **Test suite structure:**
+   - `tests/conftest.py` - Shared test utilities and fixtures
+   - `tests/test_simple.py` - Basic import and metadata tests
+   - `tests/test_snapshot_working.py` - Snapshot manager unit tests
+   - `tests/test_tag_working.py` - Tag manager unit tests  
+   - `tests/test_simple_integration.py` - Integration workflow tests
+
+6. **Test isolation:**
+   - All tests use temporary directories via `patched_constants` fixture
+   - Tests are isolated from real filesystem
+   - Proper mocking of `BACKUP_SAVE_ROOT`, `TAGS_DIR`, `HADES_SAVE_DIR`
 
 2. **Unit tests:**
    ```bash
