@@ -142,7 +142,6 @@ class TagsPane(BasePane):
 
     def _draw_tag_input(self, stdscr: Any, offset_x: int, state: Any) -> None:
         """Draw tag input field for creation/renaming."""
-        from .ui_helpers import prompt
         
         if state.creating_tag:
             prompt_text = "New tag: "

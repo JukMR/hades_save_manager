@@ -264,7 +264,6 @@ class TagInputController(BaseController):
     def _create_tag(self, name: str) -> None:
         """Create a new tag."""
         import core
-        from core.constants import TAGS_DIR
         
         core.TAGS_DIR.mkdir(parents=True, exist_ok=True)
         tag_file = core.TAGS_DIR / f"{name}.json"

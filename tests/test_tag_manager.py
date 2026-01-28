@@ -1,6 +1,5 @@
 import pytest
 import json
-from pathlib import Path
 from core import tag_manager
 
 @pytest.fixture

@@ -1,7 +1,6 @@
 """Tag management for Hades save snapshots."""
 
 import json
-from pathlib import Path
 from typing import List, Tuple
 
 from .constants import BACKUP_SAVE_ROOT, TAGS_DIR

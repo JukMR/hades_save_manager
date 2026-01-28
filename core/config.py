@@ -1,7 +1,6 @@
 """Configuration management for Hades backup tool."""
 
 import json
-from pathlib import Path
 from typing import Optional
 
 from .constants import BACKUP_SAVE_ROOT, CONFIG_FILE

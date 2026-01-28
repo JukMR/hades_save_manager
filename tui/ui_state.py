@@ -1,6 +1,6 @@
 """UI state management for the TUI."""
 
-from typing import List, Optional
+from typing import List
 
 import core
 
@@ -42,7 +42,6 @@ class UIState:
         Args:
             message: Error message to display
         """
-        import core
         from core.constants import ERROR_DISPLAY_DURATION
         
         self.error_message = message
@@ -54,7 +53,6 @@ class UIState:
         Args:
             message: Success message to display
         """
-        import core
         from core.constants import ERROR_DISPLAY_DURATION
         
         self.error_message = message

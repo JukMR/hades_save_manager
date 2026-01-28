@@ -1,7 +1,5 @@
 """Simple working tests for tag manager."""
 
-import pytest
-from tests.conftest import patched_constants
 
 
 def test_add_tag_simple(patched_constants):

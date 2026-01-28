@@ -1,8 +1,5 @@
 """Simple integration tests that don't need file system mocking."""
 
-import json
-from pathlib import Path
-from core import constants
 from core.metadata_handler import write_meta, read_meta
 
 def test_metadata_roundtrip(tmp_path):

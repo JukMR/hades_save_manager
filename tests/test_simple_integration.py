@@ -1,8 +1,5 @@
 """Simple integration tests with proper timing."""
 
-import time
-import pytest
-from tests.conftest import patched_constants
 
 
 def test_basic_workflow(patched_constants):

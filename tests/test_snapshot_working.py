@@ -1,7 +1,5 @@
 """Simple working tests for snapshot manager."""
 
-import pytest
-from tests.conftest import patched_constants
 
 
 def test_save_simple(patched_constants):
