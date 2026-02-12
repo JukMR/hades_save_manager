@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from .constants import BACKUP_SAVE_ROOT, HADES_SAVE_DIR, SAVES_DIR
+from .constants import BACKUP_SAVE_ROOT, HADES_SAVE_DIR
 from .logger import logger
 from .tag_manager import add_tag
 
@@ -39,17 +39,27 @@ def assert_game_folder_exist() -> None:
 
 
 def list_snapshots() -> List[Path]:
-    """Get list of all snapshot directories from the saves directory.
+    """Get list of all snapshot directories from all tag directories.
 
     Returns:
         Sorted list of snapshot paths (newest first)
     """
-    if not SAVES_DIR.exists():
+    all_snapshots = []
+    if not BACKUP_SAVE_ROOT.exists():
         return []
-    return sorted(
-        [p for p in SAVES_DIR.iterdir() if p.is_dir()],
-        reverse=True,
-    )
+    
+    # Look for snapshots in all tag directories (excluding reserved names)
+    reserved_names = {'config.json', 'hades.log'}
+    for item in BACKUP_SAVE_ROOT.iterdir():
+        if item.is_dir() and item.name not in reserved_names:
+            # Add all snapshots from this tag directory
+            for snapshot in item.iterdir():
+                if snapshot.is_dir():
+                    # Only add each snapshot once (by checking if it's already in the list)
+                    if not any(s.name == snapshot.name for s in all_snapshots):
+                        all_snapshots.append(snapshot)
+    
+    return sorted(all_snapshots, reverse=True)
 
 
 def save(tags: List[str], note: Optional[str]) -> Tuple[Optional[Path], str]:
@@ -65,15 +75,23 @@ def save(tags: List[str], note: Optional[str]) -> Tuple[Optional[Path], str]:
     try:
         assert_game_folder_exist()
 
-        # Create snapshot in the saves directory
+        # Create snapshot in the first tag directory
         snapshot_name = now_ts(note)
-        dest = SAVES_DIR / snapshot_name
-        SAVES_DIR.mkdir(parents=True, exist_ok=True)
-
+        
+        if not tags:
+            # If no tags specified, create a default "untagged" tag
+            tags = ["untagged"]
+        
+        # Create snapshot in the first tag directory
+        first_tag = tags[0]
+        tag_dir = BACKUP_SAVE_ROOT / first_tag
+        tag_dir.mkdir(exist_ok=True)
+        
+        dest = tag_dir / snapshot_name
         shutil.copytree(HADES_SAVE_DIR, dest)
 
-        # Add to specified tags
-        for tag in tags:
+        # Add to additional tags by copying to those directories
+        for tag in tags[1:]:
             add_tag(tag, dest)
 
         tag_str = f" with tags {tags}" if tags else ""
@@ -147,7 +165,7 @@ def restore_by_tag(tag: str) -> Tuple[bool, str]:
 
 
 def delete_snapshot(snapshot: Path) -> Tuple[bool, str]:
-    """Delete a snapshot from the saves directory and all tag directories.
+    """Delete a snapshot from all tag directories.
 
     Args:
         snapshot: Path to the snapshot to delete
@@ -158,13 +176,10 @@ def delete_snapshot(snapshot: Path) -> Tuple[bool, str]:
     try:
         snapshot_name = snapshot.name
         
-        # Remove from saves directory if it exists there
-        if str(snapshot.parent) == str(SAVES_DIR):
-            shutil.rmtree(snapshot)
-        
-        # Also remove from any tag directories where it might exist
+        # Remove from all tag directories where it exists
+        reserved_names = {'config.json', 'hades.log'}
         for tag_dir in BACKUP_SAVE_ROOT.iterdir():
-            if tag_dir.is_dir() and tag_dir.name not in ['saves', 'config.json', 'hades.log']:
+            if tag_dir.is_dir() and tag_dir.name not in reserved_names:
                 snapshot_in_tag = tag_dir / snapshot_name
                 if snapshot_in_tag.exists() and snapshot_in_tag.is_dir():
                     shutil.rmtree(snapshot_in_tag)

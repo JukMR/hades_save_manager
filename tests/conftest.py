@@ -26,19 +26,15 @@ def temp_env(tmp_path: Path):
 def patched_constants(temp_env):
     """Patch all constants with temporary environment."""
     root, tags, game_dir = temp_env
-    saves = root / "saves"  # Create saves directory
-    saves.mkdir()
 
     with patch("core.constants.BACKUP_SAVE_ROOT", root):
-        with patch("core.constants.SAVES_DIR", saves):
-            with patch("core.constants.HADES_SAVE_DIR", game_dir):
-                with patch("core.tag_manager.BACKUP_SAVE_ROOT", root):
-                    with patch("core.snapshot_manager.SAVES_DIR", saves):
-                        with patch("core.snapshot_manager.BACKUP_SAVE_ROOT", root):
-                            with patch(
-                                "core.snapshot_manager.HADES_SAVE_DIR", game_dir
-                            ):
-                                yield root, saves, game_dir
+        with patch("core.constants.HADES_SAVE_DIR", game_dir):
+            with patch("core.tag_manager.BACKUP_SAVE_ROOT", root):
+                with patch("core.snapshot_manager.BACKUP_SAVE_ROOT", root):
+                    with patch(
+                        "core.snapshot_manager.HADES_SAVE_DIR", game_dir
+                    ):
+                        yield root, game_dir
 
 
 def create_tag_file(tags_dir: Path, tag_name: str, snapshots: List[str]) -> None:

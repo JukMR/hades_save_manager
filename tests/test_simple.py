@@ -23,7 +23,6 @@ def test_metadata_roundtrip(tmp_path):
 
 def test_constants_import():
     """Test that constants can be imported."""
-    from core.constants import BACKUP_SAVE_ROOT, SAVES_DIR
+    from core.constants import BACKUP_SAVE_ROOT
 
     assert BACKUP_SAVE_ROOT is not None
-    assert SAVES_DIR is not None

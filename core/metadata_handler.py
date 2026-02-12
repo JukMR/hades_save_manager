@@ -52,13 +52,17 @@ def read_meta(snapshot: Path) -> Dict[str, Any]:
     # If metadata file exists, load it and update with info from directory name
     meta = json.loads(meta_file.read_text())
 
-    # Always extract note from directory name to ensure it's accurate
-    snapshot_name = snapshot.name
-    parts = snapshot_name.split("_", 1)  # Split on first underscore
-    note_part = parts[1] if len(parts) > 1 else ""
-    meta["note"] = note_part
-
     # Update created_at to use the full directory name
     meta["created_at"] = snapshot.name
+
+    # Extract note from directory name to ensure it's accurate
+    # But only use it if note is not already properly set in metadata
+    snapshot_name = snapshot.name
+    parts = snapshot_name.split("_", 1)  # Split on first underscore
+    note_from_name = parts[1] if len(parts) > 1 else ""
+
+    # If note in metadata is empty or default value, use note from directory name
+    if not meta.get("note") or meta.get("note") == "save":
+        meta["note"] = note_from_name
 
     return meta

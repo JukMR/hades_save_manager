@@ -7,20 +7,19 @@ from core import tag_manager
 def temp_backup_root(tmp_path, monkeypatch):
     root = tmp_path / "backups"
     root.mkdir()
-    saves = root / "saves"
-    saves.mkdir()
 
     # Monkeypatch constants in tag_manager
     monkeypatch.setattr("core.tag_manager.BACKUP_SAVE_ROOT", root)
-    monkeypatch.setattr("core.snapshot_manager.SAVES_DIR", saves)
 
-    return root, saves
+    return root
 
 
 def test_add_tag(temp_backup_root):
-    root, saves = temp_backup_root
-    # Create a mock snapshot directory for testing in the saves directory
-    snapshot_dir = saves / "snap1"
+    root = temp_backup_root
+    # Create a mock tag directory and snapshot
+    source_tag_dir = root / "source_tag"
+    source_tag_dir.mkdir()
+    snapshot_dir = source_tag_dir / "snap1"
     snapshot_dir.mkdir()
     (snapshot_dir / "mock_file.txt").write_text("mock content")
     
@@ -33,42 +32,47 @@ def test_add_tag(temp_backup_root):
 
 
 def test_list_tags(temp_backup_root):
-    root, saves = temp_backup_root
-    # Create mock snapshot directories for testing in the saves directory
-    for snap_name in ["snap1", "snap2"]:
-        snapshot_dir = saves / snap_name
+    root = temp_backup_root
+    # Create mock tag directories and snapshots
+    for tag_name, snap_name in [("tag1", "snap1"), ("tag2", "snap2")]:
+        tag_dir = root / tag_name
+        tag_dir.mkdir()
+        snapshot_dir = tag_dir / snap_name
         snapshot_dir.mkdir()
         (snapshot_dir / "mock_file.txt").write_text("mock content")
     
-    tag_manager.add_tag("tag1", saves / "snap1")
-    tag_manager.add_tag("tag2", saves / "snap2")
+    # Add additional tags to existing snapshots
+    tag_manager.add_tag("tag3", root / "tag1" / "snap1")
+    tag_manager.add_tag("tag4", root / "tag2" / "snap2")
 
-    assert sorted(tag_manager.list_tags()) == ["tag1", "tag2"]
+    assert sorted(tag_manager.list_tags()) == ["tag1", "tag2", "tag3", "tag4"]
 
 
 def test_snapshots_for_tag(temp_backup_root):
-    root, saves = temp_backup_root
-    # Create mock snapshot directories for testing in the saves directory
+    root = temp_backup_root
+    # Create a tag directory and add snapshots to it
+    tag_dir = root / "tag1"
+    tag_dir.mkdir()
+    
+    # Create snapshots in the tag directory
     for snap_name in ["snap1", "snap2"]:
-        snapshot_dir = saves / snap_name
+        snapshot_dir = tag_dir / snap_name
         snapshot_dir.mkdir()
         (snapshot_dir / "mock_file.txt").write_text("mock content")
-    
-    tag_manager.add_tag("tag1", saves / "snap1")
-    tag_manager.add_tag("tag1", saves / "snap2")
 
     assert sorted(tag_manager.snapshots_for_tag("tag1")) == ["snap1", "snap2"]
 
 
 def test_get_tag_count(temp_backup_root):
-    root, saves = temp_backup_root
-    # Create mock snapshot directories for testing in the saves directory
+    root = temp_backup_root
+    # Create a tag directory and add snapshots to it
+    tag_dir = root / "tag1"
+    tag_dir.mkdir()
+    
+    # Create snapshots in the tag directory
     for snap_name in ["snap1", "snap2"]:
-        snapshot_dir = saves / snap_name
+        snapshot_dir = tag_dir / snap_name
         snapshot_dir.mkdir()
         (snapshot_dir / "mock_file.txt").write_text("mock content")
-    
-    tag_manager.add_tag("tag1", saves / "snap1")
-    tag_manager.add_tag("tag1", saves / "snap2")
 
     assert tag_manager.get_tag_count("tag1") == 2
