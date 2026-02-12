@@ -60,8 +60,8 @@ def confirm(stdscr: Any, title: str, msg: str) -> bool:
         yes_attr = curses.A_REVERSE if selected == 0 else curses.A_NORMAL
         no_attr = curses.A_REVERSE if selected == 1 else curses.A_NORMAL
 
-        win.addstr(5, 8, " Yes ", yes_attr | curses.color_pair(ColorPairs.GREEN))
-        win.addstr(5, 16, " No ", no_attr | curses.color_pair(ColorPairs.GREEN))
+        win.addstr(5, 8, " Yes ", yes_attr | curses.color_pair(ColorPairs.BLUE))
+        win.addstr(5, 16, " No ", no_attr | curses.color_pair(ColorPairs.BLUE))
         win.refresh()
 
         k = win.getch()

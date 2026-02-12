@@ -32,7 +32,7 @@ __all__ = [
     # Constants
     "HADES_SAVE_DIR",
     "BACKUP_SAVE_ROOT",
-    "TAGS_DIR",
+    "TAGS_BASE_DIR",
     "CONFIG_FILE",
     "LOG_FILE",
     # Logger

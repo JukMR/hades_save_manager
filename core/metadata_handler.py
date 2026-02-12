@@ -5,7 +5,9 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Optional
 
 
-def write_meta(snapshot: Path, tags: Iterable[str], note: Optional[str]) -> None:
+def write_meta(
+    snapshot: Path, tags: Iterable[str], note: Optional[str]
+) -> None:
     """Write metadata for a snapshot.
 
     Args:

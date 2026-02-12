@@ -1,29 +1,31 @@
 """Tag management for Hades save snapshots."""
 
 import json
+import shutil
 from typing import List, Tuple
 
-from .constants import BACKUP_SAVE_ROOT, TAGS_DIR
+from .constants import BACKUP_SAVE_ROOT, TAGS_BASE_DIR
 from .logger import logger
 from .metadata_handler import read_meta, write_meta
 
 
 def add_tag(tag: str, snapshot_name: str) -> None:
-    """Add a snapshot to a tag file.
+    """Add a snapshot to a tag by creating a symlink.
 
     Args:
         tag: Name of the tag
         snapshot_name: Name of the snapshot to add
     """
-    TAGS_DIR.mkdir(parents=True, exist_ok=True)
-    tag_file = TAGS_DIR / f"{tag}.json"
+    TAGS_BASE_DIR.mkdir(parents=True, exist_ok=True)
+    tag_dir = TAGS_BASE_DIR / tag
+    tag_dir.mkdir(exist_ok=True)
 
-    items: set[str] = set()
-    if tag_file.exists():
-        items = set(json.loads(tag_file.read_text()))
-
-    items.add(snapshot_name)
-    tag_file.write_text(json.dumps(sorted(items), indent=2))
+    # Create a symlink from the tag directory to the actual snapshot
+    snapshot_src = BACKUP_SAVE_ROOT / snapshot_name
+    snapshot_link = tag_dir / snapshot_name
+    
+    if snapshot_src.exists() and not snapshot_link.exists():
+        snapshot_link.symlink_to(snapshot_src)
 
 
 def snapshots_for_tag(tag: str) -> List[str]:
@@ -35,10 +37,12 @@ def snapshots_for_tag(tag: str) -> List[str]:
     Returns:
         List of snapshot names, empty if tag doesn't exist
     """
-    tag_file = TAGS_DIR / f"{tag}.json"
-    if not tag_file.exists():
+    tag_dir = TAGS_BASE_DIR / tag
+    if not tag_dir.exists():
         return []
-    return json.loads(tag_file.read_text())
+    
+    # Return the names of all symlinks in the tag directory (which represent snapshots)
+    return [item.name for item in tag_dir.iterdir() if item.is_symlink() or item.is_dir()]
 
 
 def list_tags() -> List[str]:
@@ -47,9 +51,9 @@ def list_tags() -> List[str]:
     Returns:
         Sorted list of tag names
     """
-    if not TAGS_DIR.exists():
+    if not TAGS_BASE_DIR.exists():
         return []
-    return sorted(p.stem for p in TAGS_DIR.iterdir())
+    return sorted(p.name for p in TAGS_BASE_DIR.iterdir() if p.is_dir())
 
 
 def get_tag_count(tag: str) -> int:
@@ -65,40 +69,31 @@ def get_tag_count(tag: str) -> int:
 
 
 def rename_tag(old_tag: str, new_tag: str) -> Tuple[bool, str]:
-    """Rename a tag.
-
-    Args:
-        old_tag: Current tag name
-        new_tag: New tag name
-
-    Returns:
-        Tuple of (success, message)
-    """
+    """Rename a tag with enhanced validation and metadata update."""
+    if not old_tag or not new_tag:
+        return False, "Tag names cannot be empty"
     if old_tag == new_tag:
         return False, "New tag name is the same as old name"
 
-    old_file = TAGS_DIR / f"{old_tag}.json"
-    new_file = TAGS_DIR / f"{new_tag}.json"
+    old_dir = TAGS_BASE_DIR / old_tag
+    new_dir = TAGS_BASE_DIR / new_tag
 
-    if not old_file.exists():
+    if not old_dir.exists():
         error_msg = f"Tag '{old_tag}' does not exist"
         logger.error(error_msg)
         return False, error_msg
 
-    if new_file.exists():
+    if new_dir.exists():
         error_msg = f"Tag '{new_tag}' already exists"
         logger.error(error_msg)
         return False, error_msg
 
     try:
-        TAGS_DIR.mkdir(parents=True, exist_ok=True)
-
-        # Update tag file
-        snapshots = snapshots_for_tag(old_tag)
-        new_file.write_text(json.dumps(snapshots, indent=2))
-        old_file.unlink()
+        # Rename the tag directory
+        old_dir.rename(new_dir)
 
         # Update metadata in all snapshots
+        snapshots = snapshots_for_tag(new_tag)
         updated_count = _update_metadata_tag_references(
             snapshots, old_tag, new_tag, "rename"
         )
@@ -121,9 +116,9 @@ def delete_tag(tag: str) -> Tuple[bool, str]:
     Returns:
         Tuple of (success, message)
     """
-    tag_file = TAGS_DIR / f"{tag}.json"
+    tag_dir = TAGS_BASE_DIR / tag
 
-    if not tag_file.exists():
+    if not tag_dir.exists():
         error_msg = f"Tag '{tag}' does not exist"
         logger.error(error_msg)
         return False, error_msg
@@ -133,8 +128,9 @@ def delete_tag(tag: str) -> Tuple[bool, str]:
         snapshots = snapshots_for_tag(tag)
         updated_count = _update_metadata_tag_references(snapshots, tag, None, "delete")
 
-        # Delete tag file
-        tag_file.unlink()
+        # Delete tag directory and all its symlinks (but not the actual snapshots)
+        import shutil
+        shutil.rmtree(tag_dir)
 
         success_msg = f"Deleted tag '{tag}' (removed from {updated_count} snapshots)"
         logger.success(success_msg)
@@ -158,28 +154,33 @@ def merge_tags(source_tag: str, target_tag: str) -> Tuple[bool, str]:
     if source_tag == target_tag:
         return False, "Cannot merge tag into itself"
 
-    source_file = TAGS_DIR / f"{source_tag}.json"
-    target_file = TAGS_DIR / f"{target_tag}.json"
+    source_dir = TAGS_BASE_DIR / source_tag
+    target_dir = TAGS_BASE_DIR / target_tag
 
-    if not source_file.exists():
+    if not source_dir.exists():
         error_msg = f"Source tag '{source_tag}' does not exist"
         logger.error(error_msg)
         return False, error_msg
 
     try:
-        TAGS_DIR.mkdir(parents=True, exist_ok=True)
+        # Create target directory if it doesn't exist
+        target_dir.mkdir(parents=True, exist_ok=True)
 
         # Get all snapshots from both tags
         source_snapshots = set(snapshots_for_tag(source_tag))
         target_snapshots = set(snapshots_for_tag(target_tag))
 
-        # Merge snapshots
-        all_snapshots = source_snapshots.union(target_snapshots)
-
-        # Update target tag file
-        target_file.write_text(json.dumps(sorted(all_snapshots), indent=2))
+        # Create symlinks in target directory for all source snapshots
+        for snapshot_name in source_snapshots:
+            source_snapshot_path = BACKUP_SAVE_ROOT / snapshot_name
+            target_snapshot_link = target_dir / snapshot_name
+            
+            # Create a symlink in the target directory pointing to the actual snapshot
+            if source_snapshot_path.exists() and not target_snapshot_link.exists():
+                target_snapshot_link.symlink_to(source_snapshot_path)
 
         # Update metadata for all affected snapshots
+        all_snapshots = source_snapshots.union(target_snapshots)
         updated_count = 0
         for snapshot_name in all_snapshots:
             snapshot_path = BACKUP_SAVE_ROOT / snapshot_name
@@ -195,8 +196,9 @@ def merge_tags(source_tag: str, target_tag: str) -> Tuple[bool, str]:
                 write_meta(snapshot_path, meta["tags"], meta.get("note"))
                 updated_count += 1
 
-        # Delete source tag file
-        source_file.unlink()
+        # Delete source tag directory
+        import shutil
+        shutil.rmtree(source_dir)
 
         success_msg = f"Merged tag '{source_tag}' into '{target_tag}' (updated {updated_count} snapshots)"
         logger.success(success_msg)

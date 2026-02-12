@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from .constants import BACKUP_SAVE_ROOT, HADES_SAVE_DIR, TAGS_DIR
+from .constants import BACKUP_SAVE_ROOT, HADES_SAVE_DIR, TAGS_BASE_DIR
 from .logger import logger
 from .metadata_handler import read_meta
 from .tag_manager import add_tag
@@ -151,14 +151,16 @@ def delete_snapshot(snapshot: Path) -> Tuple[bool, str]:
         meta = read_meta(snapshot)
         snapshot_name = snapshot.name
 
-        # Remove snapshot from tag files
+        # Remove snapshot from tag directories (remove symlinks)
         for tag in meta.get("tags", []):
-            tag_file = TAGS_DIR / f"{tag}.json"
-            if tag_file.exists():
-                items = json.loads(tag_file.read_text())
-                if snapshot_name in items:
-                    items.remove(snapshot_name)
-                    tag_file.write_text(json.dumps(sorted(items), indent=2))
+            tag_dir = TAGS_BASE_DIR / tag
+            if tag_dir.exists():
+                snapshot_link = tag_dir / snapshot_name
+                if snapshot_link.exists():
+                    snapshot_link.unlink()  # Remove the symlink to the snapshot
+                    # If the tag directory is now empty, remove it
+                    if not any(tag_dir.iterdir()):
+                        tag_dir.rmdir()
 
         shutil.rmtree(snapshot)
 
