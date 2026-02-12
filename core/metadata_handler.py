@@ -5,9 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Optional
 
 
-def write_meta(
-    snapshot: Path, tags: Iterable[str], note: Optional[str]
-) -> None:
+def write_meta(snapshot: Path, tags: Iterable[str], note: Optional[str]) -> None:
     """Write metadata for a snapshot.
     In the new system, we primarily rely on directory names for notes,
     but we'll still maintain minimal metadata for compatibility.
@@ -40,13 +38,27 @@ def read_meta(snapshot: Path) -> Dict[str, Any]:
     if not meta_file.exists():
         # Fallback: extract info from directory name
         snapshot_name = snapshot.name
-        parts = snapshot_name.split('_', 1)  # Split on first underscore
+        # Split on first underscore to separate timestamp from note
+        parts = snapshot_name.split("_", 1)
         timestamp_part = parts[0]
         note_part = parts[1] if len(parts) > 1 else ""
-        
+
         return {
-            "created_at": timestamp_part,
+            "created_at": snapshot_name,  # Use full name as created_at
             "tags": [],  # We don't track tags in metadata anymore
-            "note": note_part
+            "note": note_part,  # Extract note from directory name
         }
-    return json.loads(meta_file.read_text())
+
+    # If metadata file exists, load it and update with info from directory name
+    meta = json.loads(meta_file.read_text())
+
+    # Always extract note from directory name to ensure it's accurate
+    snapshot_name = snapshot.name
+    parts = snapshot_name.split("_", 1)  # Split on first underscore
+    note_part = parts[1] if len(parts) > 1 else ""
+    meta["note"] = note_part
+
+    # Update created_at to use the full directory name
+    meta["created_at"] = snapshot.name
+
+    return meta
