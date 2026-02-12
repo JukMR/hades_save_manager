@@ -1,24 +1,31 @@
 """Snapshot management for Hades save backups."""
 
-import json
 import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from .constants import BACKUP_SAVE_ROOT, HADES_SAVE_DIR, TAGS_BASE_DIR
+from .constants import BACKUP_SAVE_ROOT, HADES_SAVE_DIR, SAVES_DIR
 from .logger import logger
-from .metadata_handler import read_meta
 from .tag_manager import add_tag
 
 
-def now_ts() -> str:
-    """Generate current timestamp for snapshot naming.
+def now_ts(note: Optional[str] = None) -> str:
+    """Generate current timestamp for snapshot naming with optional note suffix.
+
+    Args:
+        note: Optional note to append to timestamp
 
     Returns:
-        Timestamp string in YYYY-MM-DDTHH-MM-SS format
+        Timestamp string in YYYY-MM-DDTHH-MM-SS[_note] format
     """
-    return datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+    timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+    if note:
+        # Sanitize note to be filesystem-safe
+        sanitized_note = "".join(c for c in note if c.isalnum() or c in (' ', '-', '_', '.')).rstrip()
+        if sanitized_note:
+            timestamp = f"{timestamp}_{sanitized_note}"
+    return timestamp
 
 
 def assert_game_folder_exist() -> None:
@@ -32,15 +39,15 @@ def assert_game_folder_exist() -> None:
 
 
 def list_snapshots() -> List[Path]:
-    """Get list of all snapshot directories.
+    """Get list of all snapshot directories from the saves directory.
 
     Returns:
         Sorted list of snapshot paths (newest first)
     """
-    if not BACKUP_SAVE_ROOT.exists():
+    if not SAVES_DIR.exists():
         return []
     return sorted(
-        [p for p in BACKUP_SAVE_ROOT.iterdir() if p.is_dir() and p.name != "tags"],
+        [p for p in SAVES_DIR.iterdir() if p.is_dir()],
         reverse=True,
     )
 
@@ -58,18 +65,16 @@ def save(tags: List[str], note: Optional[str]) -> Tuple[Optional[Path], str]:
     try:
         assert_game_folder_exist()
 
-        dest = BACKUP_SAVE_ROOT / now_ts()
-        BACKUP_SAVE_ROOT.mkdir(parents=True, exist_ok=True)
+        # Create snapshot in the saves directory
+        snapshot_name = now_ts(note)
+        dest = SAVES_DIR / snapshot_name
+        SAVES_DIR.mkdir(parents=True, exist_ok=True)
 
         shutil.copytree(HADES_SAVE_DIR, dest)
 
-        # Import here to avoid circular imports
-        from .metadata_handler import write_meta
-
-        write_meta(dest, tags, note)
-
+        # Add to specified tags
         for tag in tags:
-            add_tag(tag, dest.name)
+            add_tag(tag, dest)
 
         tag_str = f" with tags {tags}" if tags else ""
         note_str = f" (note: {note})" if note else ""
@@ -130,7 +135,10 @@ def restore_by_tag(tag: str) -> Tuple[bool, str]:
             logger.error(error_msg)
             return False, error_msg
 
-        latest_snapshot = BACKUP_SAVE_ROOT / sorted(matches)[-1]
+        # Find the latest snapshot in the tag directory
+        tag_dir = BACKUP_SAVE_ROOT / tag
+        snapshot_paths = [tag_dir / name for name in matches]
+        latest_snapshot = sorted(snapshot_paths, reverse=True)[0]
         return restore(latest_snapshot)
     except Exception as e:
         error_msg = f"Failed to restore by tag: {str(e)}"
@@ -139,7 +147,7 @@ def restore_by_tag(tag: str) -> Tuple[bool, str]:
 
 
 def delete_snapshot(snapshot: Path) -> Tuple[bool, str]:
-    """Delete a snapshot and clean up tag references.
+    """Delete a snapshot from the saves directory and all tag directories.
 
     Args:
         snapshot: Path to the snapshot to delete
@@ -148,21 +156,18 @@ def delete_snapshot(snapshot: Path) -> Tuple[bool, str]:
         Tuple of (success, message)
     """
     try:
-        meta = read_meta(snapshot)
         snapshot_name = snapshot.name
-
-        # Remove snapshot from tag directories (remove symlinks)
-        for tag in meta.get("tags", []):
-            tag_dir = TAGS_BASE_DIR / tag
-            if tag_dir.exists():
-                snapshot_link = tag_dir / snapshot_name
-                if snapshot_link.exists():
-                    snapshot_link.unlink()  # Remove the symlink to the snapshot
-                    # If the tag directory is now empty, remove it
-                    if not any(tag_dir.iterdir()):
-                        tag_dir.rmdir()
-
-        shutil.rmtree(snapshot)
+        
+        # Remove from saves directory if it exists there
+        if str(snapshot.parent) == str(SAVES_DIR):
+            shutil.rmtree(snapshot)
+        
+        # Also remove from any tag directories where it might exist
+        for tag_dir in BACKUP_SAVE_ROOT.iterdir():
+            if tag_dir.is_dir() and tag_dir.name not in ['saves', 'config.json', 'hades.log']:
+                snapshot_in_tag = tag_dir / snapshot_name
+                if snapshot_in_tag.exists() and snapshot_in_tag.is_dir():
+                    shutil.rmtree(snapshot_in_tag)
 
         success_msg = f"Deleted snapshot {snapshot.name}"
         logger.success(success_msg)
