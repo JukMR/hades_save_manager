@@ -7,18 +7,21 @@ def test_add_tag_simple(patched_constants):
 
     from core import tag_manager
 
+    # Create a mock snapshot directory for testing
+    snapshot_dir = root / "snapshot1"
+    snapshot_dir.mkdir()
+    (snapshot_dir / "mock_file.txt").write_text("mock content")
+
     # Add a tag
     tag_manager.add_tag("test", "snapshot1")
 
-    # Check tag file was created
-    tag_file = tags / "test.json"
-    assert tag_file.exists(), "Tag file should be created"
+    # Check tag directory was created
+    tag_dir = tags / "test"
+    assert tag_dir.exists(), "Tag directory should be created"
 
-    # Check snapshot is in tag file
-    from tests.conftest import read_tag_file
-
-    snapshots = read_tag_file(tags, "test")
-    assert "snapshot1" in snapshots, "Snapshot should be in tag file"
+    # Check snapshot symlink exists in tag directory
+    snapshot_link = tag_dir / "snapshot1"
+    assert snapshot_link.exists(), "Snapshot link should exist in tag directory"
 
 
 def test_list_tags_simple(patched_constants):
@@ -44,6 +47,12 @@ def test_snapshots_for_tag_simple(patched_constants):
 
     from core import tag_manager
 
+    # Create mock snapshot directories for testing
+    for snap_name in ["snap1", "snap2"]:
+        snapshot_dir = root / snap_name
+        snapshot_dir.mkdir()
+        (snapshot_dir / "mock_file.txt").write_text("mock content")
+
     # Add snapshots to a tag
     tag_manager.add_tag("test", "snap1")
     tag_manager.add_tag("test", "snap2")
@@ -61,6 +70,12 @@ def test_get_tag_count_simple(patched_constants):
 
     from core import tag_manager
 
+    # Create mock snapshot directories for testing
+    for snap_name in ["snap1", "snap2", "snap3"]:
+        snapshot_dir = root / snap_name
+        snapshot_dir.mkdir()
+        (snapshot_dir / "mock_file.txt").write_text("mock content")
+
     # Add snapshots to a tag
     tag_manager.add_tag("test", "snap1")
     tag_manager.add_tag("test", "snap2")
@@ -77,15 +92,19 @@ def test_add_multiple_snapshots_to_tag(patched_constants):
 
     from core import tag_manager
 
+    # Create mock snapshot directories for testing
+    for snap_name in ["snap1", "snap2", "snap3"]:
+        snapshot_dir = root / snap_name
+        snapshot_dir.mkdir()
+        (snapshot_dir / "mock_file.txt").write_text("mock content")
+
     # Add multiple snapshots to the same tag
     tag_manager.add_tag("multi", "snap1")
     tag_manager.add_tag("multi", "snap2")
     tag_manager.add_tag("multi", "snap3")
 
     # Check all snapshots are in tag
-    from tests.conftest import read_tag_file
-
-    snapshots = read_tag_file(tags, "multi")
+    snapshots = tag_manager.snapshots_for_tag("multi")
     assert len(snapshots) == 3, f"Expected 3 snapshots, got {len(snapshots)}"
     assert "snap1" in snapshots
     assert "snap2" in snapshots

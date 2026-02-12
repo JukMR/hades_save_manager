@@ -1,6 +1,6 @@
 """Simple integration tests that don't need file system mocking."""
 
-from core.metadata_handler import write_meta, read_meta
+from core.metadata_handler import read_meta, write_meta
 
 
 def test_metadata_roundtrip(tmp_path):
@@ -23,7 +23,7 @@ def test_metadata_roundtrip(tmp_path):
 
 def test_constants_import():
     """Test that constants can be imported."""
-    from core.constants import BACKUP_SAVE_ROOT, TAGS_DIR
+    from core.constants import BACKUP_SAVE_ROOT, TAGS_BASE_DIR
 
     assert BACKUP_SAVE_ROOT is not None
-    assert TAGS_DIR is not None
+    assert TAGS_BASE_DIR is not None
