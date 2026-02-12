@@ -290,7 +290,7 @@ class TagInputController(BaseController):
         import core
 
         # Use the core module to create the tag by creating an empty directory
-        tag_dir = core.TAGS_BASE_DIR / name
+        tag_dir = core.BACKUP_SAVE_ROOT / name
         
         if tag_dir.exists():
             self.state.set_error(f"Tag '{name}' already exists")

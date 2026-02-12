@@ -460,8 +460,8 @@ def main(stdscr) -> None:
                 name = state.tag_input.strip()
                 if name:
                     if state.creating_tag:
-                        core.TAGS_BASE_DIR.mkdir(parents=True, exist_ok=True)
-                        tag_dir = core.TAGS_BASE_DIR / name
+                        core.BACKUP_SAVE_ROOT.mkdir(parents=True, exist_ok=True)
+                        tag_dir = core.BACKUP_SAVE_ROOT / name
                         tag_dir.mkdir(exist_ok=True)
 
                         # Check if tag directory already exists and has content
@@ -676,8 +676,8 @@ def main(stdscr) -> None:
                 if state.tag_input.strip():
                     if state.creating_tag:
                         # Just create the tag (it will be empty until used)
-                        core.TAGS_BASE_DIR.mkdir(parents=True, exist_ok=True)
-                        tag_dir = core.TAGS_BASE_DIR / state.tag_input.strip()
+                        core.BACKUP_SAVE_ROOT.mkdir(parents=True, exist_ok=True)
+                        tag_dir = core.BACKUP_SAVE_ROOT / state.tag_input.strip()
                         tag_dir.mkdir(exist_ok=True)
                         # Check if tag directory already exists and has content
                         if any(tag_dir.iterdir()):  # If directory has content
