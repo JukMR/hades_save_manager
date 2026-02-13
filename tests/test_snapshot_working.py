@@ -3,7 +3,7 @@
 
 def test_save_simple(patched_constants):
     """Test snapshot creation with simple approach."""
-    root, tags, game_dir = patched_constants
+    root, game_dir = patched_constants
 
     from core import snapshot_manager
 
@@ -22,7 +22,7 @@ def test_save_simple(patched_constants):
 
 def test_list_snapshots_simple(patched_constants):
     """Test listing snapshots."""
-    root, tags, game_dir = patched_constants
+    root, game_dir = patched_constants
 
     from core import snapshot_manager
 
@@ -37,7 +37,7 @@ def test_list_snapshots_simple(patched_constants):
 
 def test_restore_simple(patched_constants):
     """Test snapshot restore."""
-    root, tags, game_dir = patched_constants
+    root, game_dir = patched_constants
 
     from core import snapshot_manager
 
@@ -62,7 +62,7 @@ def test_restore_simple(patched_constants):
 
 def test_delete_snapshot_simple(patched_constants):
     """Test snapshot deletion."""
-    root, tags, game_dir = patched_constants
+    root, game_dir = patched_constants
 
     from core import snapshot_manager
 
@@ -78,7 +78,7 @@ def test_delete_snapshot_simple(patched_constants):
 
 def test_save_error_handling(patched_constants):
     """Test error handling when game folder doesn't exist."""
-    root, tags, game_dir = patched_constants
+    root, game_dir = patched_constants
 
     # Remove game directory to simulate missing folder
     import shutil

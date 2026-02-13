@@ -8,8 +8,7 @@ HADES_SAVE_DIR = Path(
 )
 
 # Backup directories and files
-BACKUP_SAVE_ROOT = Path.home() / ".local/share/hades_backups"
-TAGS_DIR = BACKUP_SAVE_ROOT / "tags"
+BACKUP_SAVE_ROOT = Path.home() / ".local/share/hades_backups_v2"  # New path to avoid conflicts
 CONFIG_FILE = BACKUP_SAVE_ROOT / "config.json"
 LOG_FILE = BACKUP_SAVE_ROOT / "hades.log"
 

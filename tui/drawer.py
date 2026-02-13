@@ -73,7 +73,7 @@ class TUIDrawer:
                     "deleted",
                 ]
             ):
-                color = ColorPairs.GREEN
+                color = ColorPairs.BLUE  # Changed from GREEN to BLUE
 
             stdscr.addstr(
                 h - 1,
@@ -157,7 +157,7 @@ class TUIDrawer:
         help_text = self._add_context_info(help_text, state, w)
 
         stdscr.addstr(
-            help_y, 2, help_text[: w - 4], curses.color_pair(ColorPairs.GREEN)
+            help_y, 2, help_text[: w - 4], curses.color_pair(ColorPairs.BLUE)  # Changed from GREEN to BLUE
         )
 
     def _add_context_info(self, help_text: str, state: Any, w: int) -> str:

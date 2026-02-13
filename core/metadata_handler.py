@@ -7,16 +7,20 @@ from typing import Any, Dict, Iterable, Optional
 
 def write_meta(snapshot: Path, tags: Iterable[str], note: Optional[str]) -> None:
     """Write metadata for a snapshot.
+    In the new system, we primarily rely on directory names for notes,
+    but we'll still maintain minimal metadata for compatibility.
 
     Args:
         snapshot: Path to the snapshot directory
         tags: Iterable of tag names
         note: Optional note about the snapshot
     """
+    # In the new system, the note is part of the directory name
+    # So we'll just store the provided note as-is
     meta = {
-        "created_at": snapshot.name,
+        "created_at": snapshot.name,  # Store the full name including note
         "tags": sorted(set(tags)),
-        "note": note,
+        "note": note,  # Store the original note
     }
     (snapshot / "meta.json").write_text(json.dumps(meta, indent=2))
 
@@ -32,5 +36,33 @@ def read_meta(snapshot: Path) -> Dict[str, Any]:
     """
     meta_file = snapshot / "meta.json"
     if not meta_file.exists():
-        return {}
-    return json.loads(meta_file.read_text())
+        # Fallback: extract info from directory name
+        snapshot_name = snapshot.name
+        # Split on first underscore to separate timestamp from note
+        parts = snapshot_name.split("_", 1)
+        timestamp_part = parts[0]
+        note_part = parts[1] if len(parts) > 1 else ""
+
+        return {
+            "created_at": snapshot_name,  # Use full name as created_at
+            "tags": [],  # We don't track tags in metadata anymore
+            "note": note_part,  # Extract note from directory name
+        }
+
+    # If metadata file exists, load it and update with info from directory name
+    meta = json.loads(meta_file.read_text())
+
+    # Update created_at to use the full directory name
+    meta["created_at"] = snapshot.name
+
+    # Extract note from directory name to ensure it's accurate
+    # But only use it if note is not already properly set in metadata
+    snapshot_name = snapshot.name
+    parts = snapshot_name.split("_", 1)  # Split on first underscore
+    note_from_name = parts[1] if len(parts) > 1 else ""
+
+    # If note in metadata is empty or default value, use note from directory name
+    if not meta.get("note") or meta.get("note") == "save":
+        meta["note"] = note_from_name
+
+    return meta

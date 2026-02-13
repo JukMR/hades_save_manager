@@ -3,7 +3,7 @@
 
 def test_basic_workflow(patched_constants):
     """Test basic workflow: save -> list."""
-    root, tags, game_dir = patched_constants
+    root, game_dir = patched_constants
 
     from core import snapshot_manager, tag_manager
 
@@ -22,7 +22,7 @@ def test_basic_workflow(patched_constants):
 
 def test_error_handling(patched_constants):
     """Test error conditions."""
-    root, tags, game_dir = patched_constants
+    root, game_dir = patched_constants
 
     from core import snapshot_manager
 
@@ -35,7 +35,7 @@ def test_error_handling(patched_constants):
 
 def test_import_isolation(patched_constants):
     """Test that imports work correctly with patching."""
-    root, tags, game_dir = patched_constants
+    root, game_dir = patched_constants
 
     # Test importing after patching
     from core import snapshot_manager, tag_manager

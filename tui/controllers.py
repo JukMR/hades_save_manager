@@ -289,13 +289,14 @@ class TagInputController(BaseController):
         """Create a new tag."""
         import core
 
-        core.TAGS_DIR.mkdir(parents=True, exist_ok=True)
-        tag_file = core.TAGS_DIR / f"{name}.json"
-
-        if tag_file.exists():
+        # Use the core module to create the tag by creating an empty directory
+        tag_dir = core.BACKUP_SAVE_ROOT / name
+        
+        if tag_dir.exists():
             self.state.set_error(f"Tag '{name}' already exists")
         else:
-            tag_file.write_text("[]")
+            tag_dir.mkdir(parents=True, exist_ok=True)
+            # Just create the directory - it will be used when snapshots are added
             self.state.set_success(f"Created tag '{name}'")
 
             # Auto-select newly created tag

@@ -11,11 +11,11 @@ class ColorPairs:
     SELECTED = 2  # selected row (black on cyan)
     YELLOW = 3  # metadata
     RED = 4  # warnings
-    GREEN = 5  # hints / actions
+    BLUE = 5  # hints / actions (changed from green to blue)
     ACTIVE_PANE = 6  # active pane border (black on white)
     MAGENTA = 7  # tags
     ACTIVE_TAG = 8  # active tag (white on blue)
-    LOG = 9  # log messages
+    LOG = 9  # log messages (changed from cyan to purple)
 
 
 def init_colors() -> None:
@@ -27,11 +27,11 @@ def init_colors() -> None:
     curses.init_pair(ColorPairs.SELECTED, curses.COLOR_BLACK, curses.COLOR_CYAN)
     curses.init_pair(ColorPairs.YELLOW, curses.COLOR_YELLOW, -1)
     curses.init_pair(ColorPairs.RED, curses.COLOR_RED, -1)
-    curses.init_pair(ColorPairs.GREEN, curses.COLOR_GREEN, -1)
+    curses.init_pair(ColorPairs.BLUE, curses.COLOR_BLUE, -1)  # Changed from green to blue
     curses.init_pair(ColorPairs.ACTIVE_PANE, curses.COLOR_BLACK, curses.COLOR_WHITE)
     curses.init_pair(ColorPairs.MAGENTA, curses.COLOR_MAGENTA, -1)
     curses.init_pair(ColorPairs.ACTIVE_TAG, curses.COLOR_WHITE, curses.COLOR_BLUE)
-    curses.init_pair(ColorPairs.LOG, curses.COLOR_CYAN, -1)
+    curses.init_pair(ColorPairs.LOG, curses.COLOR_MAGENTA, -1)  # Changed from cyan to magenta (purple-like)
 
 
 def get_log_color(log_line: str) -> int:
@@ -46,7 +46,7 @@ def get_log_color(log_line: str) -> int:
     if "ERROR" in log_line:
         return curses.color_pair(ColorPairs.RED)
     elif "SUCCESS" in log_line:
-        return curses.color_pair(ColorPairs.GREEN)
+        return curses.color_pair(ColorPairs.BLUE)  # Changed from GREEN to BLUE
     elif "WARNING" in log_line:
         return curses.color_pair(ColorPairs.YELLOW)
     else:

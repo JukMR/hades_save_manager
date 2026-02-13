@@ -38,6 +38,14 @@ class Logger:
         """Log a success message."""
         self.log("SUCCESS", message)
 
+    def debug(self, message: str) -> None:
+        """Log a debug message."""
+        # Debug mode is currently disabled by default
+        # To enable, uncomment the settings check below
+        # user_settings = get_settings()
+        # if user_settings.get("debug_mode", False):
+        self.log("DEBUG", message)
+
     def warning(self, message: str) -> None:
         """Log a warning message."""
         self.log("WARNING", message)

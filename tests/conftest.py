@@ -28,16 +28,13 @@ def patched_constants(temp_env):
     root, tags, game_dir = temp_env
 
     with patch("core.constants.BACKUP_SAVE_ROOT", root):
-        with patch("core.constants.TAGS_DIR", tags):
-            with patch("core.constants.HADES_SAVE_DIR", game_dir):
-                with patch("core.tag_manager.TAGS_DIR", tags):
-                    with patch("core.tag_manager.BACKUP_SAVE_ROOT", root):
-                        with patch("core.snapshot_manager.TAGS_DIR", tags):
-                            with patch("core.snapshot_manager.BACKUP_SAVE_ROOT", root):
-                                with patch(
-                                    "core.snapshot_manager.HADES_SAVE_DIR", game_dir
-                                ):
-                                    yield root, tags, game_dir
+        with patch("core.constants.HADES_SAVE_DIR", game_dir):
+            with patch("core.tag_manager.BACKUP_SAVE_ROOT", root):
+                with patch("core.snapshot_manager.BACKUP_SAVE_ROOT", root):
+                    with patch(
+                        "core.snapshot_manager.HADES_SAVE_DIR", game_dir
+                    ):
+                        yield root, game_dir
 
 
 def create_tag_file(tags_dir: Path, tag_name: str, snapshots: List[str]) -> None:

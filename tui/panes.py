@@ -170,7 +170,7 @@ class TagsPane(BasePane):
             5,
             offset_x + 2,
             "[Enter] confirm  [Esc] cancel",
-            curses.color_pair(ColorPairs.GREEN),
+            curses.color_pair(ColorPairs.BLUE),  # Changed from GREEN to BLUE
         )
 
     def _draw_empty_tags_state(self, stdscr: Any, offset_x: int) -> None:
@@ -182,7 +182,7 @@ class TagsPane(BasePane):
             4,
             offset_x + 2,
             "Press [n] to create a tag",
-            curses.color_pair(ColorPairs.GREEN),
+            curses.color_pair(ColorPairs.BLUE),  # Changed from GREEN to BLUE
         )
 
     def _draw_tags_list(
@@ -204,7 +204,7 @@ class TagsPane(BasePane):
         self, stdscr: Any, offset_x: int, y: int, is_selected: bool
     ) -> None:
         """Draw the 'New tag' virtual item."""
-        attr = curses.color_pair(ColorPairs.GREEN)
+        attr = curses.color_pair(ColorPairs.BLUE)  # Changed from GREEN to BLUE
         if is_selected:
             attr |= curses.A_REVERSE
         stdscr.addstr(y, offset_x + 2, "+ New tag".ljust(self.width - 4), attr)

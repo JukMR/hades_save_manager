@@ -16,7 +16,7 @@ def init_colors() -> None:
     curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_CYAN)  # selected row
     curses.init_pair(3, curses.COLOR_YELLOW, -1)  # metadata
     curses.init_pair(4, curses.COLOR_RED, -1)  # warnings
-    curses.init_pair(5, curses.COLOR_GREEN, -1)  # hints / actions
+    curses.init_pair(5, curses.COLOR_BLUE, -1)  # hints / actions (changed from green to blue)
     curses.init_pair(6, curses.COLOR_BLACK, curses.COLOR_WHITE)  # active pane border
     curses.init_pair(7, curses.COLOR_MAGENTA, -1)  # tags
     curses.init_pair(8, curses.COLOR_WHITE, curses.COLOR_BLUE)  # active tag
@@ -460,13 +460,14 @@ def main(stdscr) -> None:
                 name = state.tag_input.strip()
                 if name:
                     if state.creating_tag:
-                        core.TAGS_DIR.mkdir(parents=True, exist_ok=True)
-                        tag_file = core.TAGS_DIR / f"{name}.json"
+                        core.BACKUP_SAVE_ROOT.mkdir(parents=True, exist_ok=True)
+                        tag_dir = core.BACKUP_SAVE_ROOT / name
+                        tag_dir.mkdir(exist_ok=True)
 
-                        if tag_file.exists():
+                        # Check if tag directory already exists and has content
+                        if any(tag_dir.iterdir()):  # If directory has content
                             set_error(state, f"Tag '{name}' already exists")
                         else:
-                            tag_file.write_text("[]")
                             set_success(state, f"Created tag '{name}'")
 
                             # auto-select newly created tag
@@ -675,16 +676,17 @@ def main(stdscr) -> None:
                 if state.tag_input.strip():
                     if state.creating_tag:
                         # Just create the tag (it will be empty until used)
-                        core.TAGS_DIR.mkdir(parents=True, exist_ok=True)
-                        tag_file = core.TAGS_DIR / f"{state.tag_input.strip()}.json"
-                        if not tag_file.exists():
-                            tag_file.write_text("[]")
-                            set_success(
-                                state, f"Created tag '{state.tag_input.strip()}'"
-                            )
-                        else:
+                        core.BACKUP_SAVE_ROOT.mkdir(parents=True, exist_ok=True)
+                        tag_dir = core.BACKUP_SAVE_ROOT / state.tag_input.strip()
+                        tag_dir.mkdir(exist_ok=True)
+                        # Check if tag directory already exists and has content
+                        if any(tag_dir.iterdir()):  # If directory has content
                             set_error(
                                 state, f"Tag '{state.tag_input.strip()}' already exists"
+                            )
+                        else:
+                            set_success(
+                                state, f"Created tag '{state.tag_input.strip()}'"
                             )
                     elif state.renaming_tag and state.tag_idx < len(core.list_tags()):
                         old_tag = core.list_tags()[state.tag_idx]
