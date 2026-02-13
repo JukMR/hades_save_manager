@@ -1,6 +1,6 @@
 # Hades Save Backup Tool
 
-A comprehensive backup and restore system for Hades save files with both CLI and TUI interfaces.
+A simplified backup and restore system for Hades save files with both CLI and TUI interfaces.
 
 ## Quick Start
 
@@ -24,8 +24,8 @@ A comprehensive backup and restore system for Hades save files with both CLI and
 
 **Python Module Execution:**
 ```bash
-python3 -m tui.main      # TUI
 python3 -m cli.cli       # CLI
+python3 -m tui.main      # TUI
 ```
 
 ## Common Workflows
@@ -40,8 +40,8 @@ python3 -m cli.cli       # CLI
 
 ### List and Restore
 ```bash
-# CLI - see all snapshots with metadata
-./hades_cli.py list --meta
+# CLI - see all snapshots
+./hades_cli.py list
 
 # CLI - restore latest boss checkpoint
 ./hades_cli.py restore-tag boss
@@ -54,8 +54,11 @@ python3 -m cli.cli       # CLI
 # CLI - see all tags
 ./hades_cli.py list-tags
 
-# CLI - merge temporary tags
-./hades_cli.py merge-tags "temp1" "main_run"
+# CLI - rename tags
+./hades_cli.py rename-tag "old_name" "new_name"
+
+# CLI - delete tags
+./hades_cli.py delete-tag "tag_name"
 
 # TUI: Switch to tags pane with [Tab], create with [n], manage with shortcuts
 ```
@@ -63,11 +66,30 @@ python3 -m cli.cli       # CLI
 ## Key Features
 
 - **Instant snapshots** of Hades save files
-- **Tag system** for organizing checkpoints  
-- **Metadata tracking** (creation time, notes, tags)
+- **Simplified tag system** using directory structure
+- **Notes embedded** in directory names
 - **Multiple interfaces** (TUI and CLI)
 - **Atomic operations** (corruption-resistant restores)
 - **Comprehensive logging** of all operations
+
+## File Structure
+
+The tool uses a simplified directory structure:
+
+```
+~/.local/share/hades_backups_v2/
+├── [tag_name_1]/
+│   ├── [timestamp_note_1]/
+│   └── [timestamp_note_2]/
+├── [tag_name_2]/
+│   └── [timestamp_note_3]/
+├── config.json
+└── hades.log
+```
+
+- Tags are directories containing snapshots
+- Notes are embedded in directory names as `[timestamp]_[note]`
+- No more complex JSON metadata files
 
 ## Interface Reference
 
@@ -95,7 +117,7 @@ python3 -m cli.cli       # CLI
 **Snapshots:**
 ```bash
 ./hades_cli.py save [--tag <name>...] [--note "text"]
-./hades_cli.py list [--meta]
+./hades_cli.py list
 ./hades_cli.py restore <snapshot_name>
 ./hades_cli.py restore-tag <tag_name>
 ./hades_cli.py delete <snapshot_name>
@@ -121,8 +143,8 @@ The tool is organized into three main modules:
 
 - **`core/`** - Business logic and data management
   - Snapshot CRUD operations
-  - Tag management
-  - Metadata handling
+  - Tag management (directory-based)
+  - Minimal metadata handling
   - Configuration and logging
 - **`cli/`** - Command-line interface
 - **`tui/`** - Terminal user interface
@@ -130,24 +152,18 @@ The tool is organized into three main modules:
   - Input handling controllers
   - State management
 
-## Recent Improvements
+## Simplified Design
 
-### Refactored for Maintainability
-- **Modular design**: Split 421-line core.py into 6 focused modules
-- **UI decomposition**: Split 685-line tui.py into 7 focused components  
-- **SOLID principles**: Single responsibility, clear interfaces
-- **Error handling**: Centralized exception management
-- **Type safety**: Comprehensive type hints
-
-### Backward Compatibility
-- All original functionality preserved
-- Same command-line interface structure
-- No breaking changes to existing workflows
+### Cleaner Architecture
+- **Directory-based tags**: Tags are simply directories
+- **Embedded notes**: Notes are part of directory names
+- **No JSON metadata**: Reduced complexity
+- **Single source of truth**: File system is the canonical state
 
 ### Better User Experience
 - **Simple launch**: `./hades_tui.py` and `./hades_cli.py`
-- **Clear navigation**: Pane-based TUI with intuitive controls
-- **Smart defaults**: Remembers last-used tag
+- **Intuitive structure**: Browse saves directly in file system
+- **Clear organization**: Tags are visible as directories
 - **Robust operations**: Atomic restores prevent corruption
 
 ## Requirements
@@ -161,8 +177,8 @@ The tool is organized into three main modules:
 Clone and run from the project directory:
 ```bash
 git clone <repository_url>
-cd hades_restore_savefile
+cd hades_save_manager
 ./hades_tui.py  # Launch TUI
 ```
 
-The refactored version maintains all original functionality while significantly improving code organization, readability, and maintainability.
+The simplified version maintains all essential functionality while significantly reducing complexity and improving usability.
