@@ -21,6 +21,7 @@ from .snapshot_manager import (
 from .tag_manager import (
     add_tag,
     delete_tag,
+    get_snapshot_tag,
     get_tag_count,
     list_tags,
     merge_tags,
@@ -42,6 +43,7 @@ __all__ = [
     # Tags
     "add_tag",
     "delete_tag",
+    "get_snapshot_tag",
     "get_tag_count",
     "list_tags",
     "merge_tags",

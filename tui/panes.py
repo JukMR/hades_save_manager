@@ -98,9 +98,10 @@ class MetadataPane(BasePane):
 
         snap = snapshots[state.snapshot_idx]
         meta = core.read_meta(snap)
-        self._draw_metadata_content(stdscr, offset_x, meta)
+        tag_name = core.get_snapshot_tag(snap)  # Get the tag directory name
+        self._draw_metadata_content(stdscr, offset_x, meta, tag_name)
 
-    def _draw_metadata_content(self, stdscr: Any, offset_x: int, meta: dict) -> None:
+    def _draw_metadata_content(self, stdscr: Any, offset_x: int, meta: dict, tag_name: str = None) -> None:
         """Draw the actual metadata content."""
         y = 2
 
@@ -112,12 +113,16 @@ class MetadataPane(BasePane):
             curses.color_pair(ColorPairs.YELLOW),
         )
 
-        # Tags
+        # Show tag/folder name instead of tags
         y += 2
-        tags_text = ", ".join(meta.get("tags", []))
-        stdscr.addstr(
-            y, offset_x + 2, f"Tags: {tags_text}", curses.color_pair(ColorPairs.MAGENTA)
-        )
+        if tag_name:
+            stdscr.addstr(
+                y, offset_x + 2, f"Folder: {tag_name}", curses.color_pair(ColorPairs.MAGENTA)
+            )
+        else:
+            stdscr.addstr(
+                y, offset_x + 2, f"Folder: untagged", curses.color_pair(ColorPairs.MAGENTA)
+            )
 
         # Note
         y += 2

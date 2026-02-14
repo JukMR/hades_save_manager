@@ -2,7 +2,7 @@
 
 import shutil
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from .constants import BACKUP_SAVE_ROOT
 from .logger import logger
@@ -139,6 +139,30 @@ def delete_tag(tag: str) -> Tuple[bool, str]:
         error_msg = f"Failed to delete tag: {str(e)}"
         logger.error(error_msg)
         return False, error_msg
+
+
+def get_snapshot_tag(snapshot_path: Path) -> Optional[str]:
+    """Get the tag directory name that contains this snapshot.
+
+    Args:
+        snapshot_path: Path to the snapshot
+
+    Returns:
+        Name of the tag directory, or None if not found
+    """
+    if not BACKUP_SAVE_ROOT.exists():
+        return None
+    
+    reserved_names = {'saves', 'config.json', 'hades.log', 'tags'}
+    
+    for tag_dir in BACKUP_SAVE_ROOT.iterdir():
+        if tag_dir.is_dir() and tag_dir.name not in reserved_names:
+            # Check if this snapshot exists in this tag directory
+            snapshot_in_tag = tag_dir / snapshot_path.name
+            if snapshot_in_tag.exists() and snapshot_in_tag.is_dir():
+                return tag_dir.name
+    
+    return None
 
 
 def merge_tags(source_tag: str, target_tag: str) -> Tuple[bool, str]:
