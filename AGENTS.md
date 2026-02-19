@@ -17,31 +17,30 @@ The design goal is **zero duplication of business logic**: UI layers must delega
 ### Development Environment Setup
 ```bash
 # Install test dependencies
-pip install pytest coverage
+uv sync --dev  # Install development dependencies
 
 # Run all tests
-./test_runner.py
+uv run pytest tests/ -v
 
 # Run specific test file
-pytest tests/test_tag_manager.py -v
+uv run pytest tests/test_tag_manager.py -v
 
 # Run tests with coverage
-python3 -m coverage run -m pytest tests/ -v
-python3 -m coverage report --include=core/* --show-missing
+uv run pytest tests/ -v --cov=core --cov-report=term-missing
 ```
 
 ### Code Quality Commands
 ```bash
 # Python syntax check
-python3 -m py_compile core/*.py cli/*.py tui/*.py
+uv run python -m py_compile core/*.py cli/*.py tui/*.py
 
 # Import testing
-python3 -c "import core; import cli.cli; import tui.main; print('✅ All imports work')"
+uv run python -c "import core; import cli.cli; import tui.main; print('✅ All imports work')"
 
 # Functionality testing
-python3 cli/cli.py --help
-python3 cli/cli.py list
-python3 cli/cli.py list-tags
+uv run python -m cli.cli --help
+uv run python -m cli.cli list
+uv run python -m cli.cli list-tags
 ```
 
 ### Testing Strategy
@@ -268,7 +267,7 @@ def list_snapshots() -> List[Path]:
 
 4. **Coverage check:**
    ```bash
-   ./test_runner.py  # Should show >80% coverage for core/
+   uv run pytest tests/ --cov=core --cov-report=term-missing
    ```
 
 ### Test Organization
@@ -282,16 +281,10 @@ def list_snapshots() -> List[Path]:
 
 ### **Universal Launcher** (Recommended for users)
 ```bash
-./hades.py
+./hades
 ```
 
-### **Direct Scripts** (For automation and power users)
-```bash
-./hades_cli.py        # Direct CLI
-./hades_tui.py        # Direct TUI
-```
-
-### **Module Execution** (For development and packaging)
+### **Module Execution** (For automation and power users)
 ```bash
 python3 -m cli.cli     # CLI as module
 python3 -m tui.main    # TUI as module

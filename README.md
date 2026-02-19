@@ -6,7 +6,7 @@ A simplified backup and restore system for Hades save files with both CLI and TU
 
 ### Universal Launcher (Easiest)
 ```bash
-./hades.py
+./hades
 # Interactive menu to choose between TUI and CLI
 ```
 
@@ -14,18 +14,12 @@ A simplified backup and restore system for Hades save files with both CLI and TU
 
 **Terminal Interface (Recommended):**
 ```bash
-./hades_tui.py
+python3 -m tui.main
 ```
 
 **Command Line Interface:**
 ```bash
-./hades_cli.py
-```
-
-**Python Module Execution:**
-```bash
-python3 -m cli.cli       # CLI
-python3 -m tui.main      # TUI
+python3 -m cli.cli
 ```
 
 ## Common Workflows
@@ -33,7 +27,7 @@ python3 -m tui.main      # TUI
 ### Save Progress with Tags
 ```bash
 # CLI
-./hades_cli.py save --tag "boss" --note "Reached Theseus with shield"
+python3 -m cli.cli save --tag "boss" --note "Reached Theseus with shield"
 
 # TUI: Press [s] in snapshots pane, enter note when prompted
 ```
@@ -41,10 +35,10 @@ python3 -m tui.main      # TUI
 ### List and Restore
 ```bash
 # CLI - see all snapshots
-./hades_cli.py list
+python3 -m cli.cli list
 
 # CLI - restore latest boss checkpoint
-./hades_cli.py restore-tag boss
+python3 -m cli.cli restore-tag boss
 
 # TUI: Navigate with [↑↓], select with [Enter], restore with [r]
 ```
@@ -52,13 +46,13 @@ python3 -m tui.main      # TUI
 ### Tag Management
 ```bash
 # CLI - see all tags
-./hades_cli.py list-tags
+python3 -m cli.cli list-tags
 
 # CLI - rename tags
-./hades_cli.py rename-tag "old_name" "new_name"
+python3 -m cli.cli rename-tag "old_name" "new_name"
 
 # CLI - delete tags
-./hades_cli.py delete-tag "tag_name"
+python3 -m cli.cli delete-tag "tag_name"
 
 # TUI: Switch to tags pane with [Tab], create with [n], manage with shortcuts
 ```
@@ -116,25 +110,25 @@ The tool uses a simplified directory structure:
 
 **Snapshots:**
 ```bash
-./hades_cli.py save [--tag <name>...] [--note "text"]
-./hades_cli.py list
-./hades_cli.py restore <snapshot_name>
-./hades_cli.py restore-tag <tag_name>
-./hades_cli.py delete <snapshot_name>
+python3 -m cli.cli save [--tag <name>...] [--note "text"]
+python3 -m cli.cli list
+python3 -m cli.cli restore <snapshot_name>
+python3 -m cli.cli restore-tag <tag_name>
+python3 -m cli.cli delete <snapshot_name>
 ```
 
 **Tags:**
 ```bash
-./hades_cli.py list-tags
-./hades_cli.py rename-tag <old> <new>
-./hades_cli.py delete-tag <tag>
-./hades_cli.py merge-tags <source> <target>
+python3 -m cli.cli list-tags
+python3 -m cli.cli rename-tag <old> <new>
+python3 -m cli.cli delete-tag <tag>
+python3 -m cli.cli merge-tags <source> <target>
 ```
 
 **Other:**
 ```bash
-./hades_cli.py logs
-./hades_cli.py --help
+python3 -m cli.cli logs
+python3 -m cli.cli --help
 ```
 
 ## Architecture
@@ -161,7 +155,7 @@ The tool is organized into three main modules:
 - **Single source of truth**: File system is the canonical state
 
 ### Better User Experience
-- **Simple launch**: `./hades_tui.py` and `./hades_cli.py`
+- **Simple launch**: `./hades` or `python3 -m tui.main` / `python3 -m cli.cli`
 - **Intuitive structure**: Browse saves directly in file system
 - **Clear organization**: Tags are visible as directories
 - **Robust operations**: Atomic restores prevent corruption
@@ -178,7 +172,7 @@ Clone and run from the project directory:
 ```bash
 git clone <repository_url>
 cd hades_save_manager
-./hades_tui.py  # Launch TUI
+./hades  # Launch universal menu
 ```
 
 The simplified version maintains all essential functionality while significantly reducing complexity and improving usability.
